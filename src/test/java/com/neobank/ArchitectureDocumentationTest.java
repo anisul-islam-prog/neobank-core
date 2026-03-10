@@ -12,10 +12,11 @@ class ArchitectureDocumentationTest {
 
     @Test
     void generateDocumentation() {
-        var documenter = new Documenter(ApplicationModules.of(NeoBankCoreApplication.class));
+        ApplicationModules modules = ApplicationModules.of(NeoBankCoreApplication.class);
+        Documenter documenter = new Documenter(modules, "target/modulith-docs");
 
-        documenter.writeDocumentationAsPlantUmlTo("target/modulith-docs");
-        documenter.writeComponentDiagramsAsPlantUmlTo("target/modulith-docs");
-        documenter.writeModuleCanvasesTo("target/modulith-docs");
+        documenter.writeDocumentation();
+        documenter.writeModulesAsPlantUml();
+        documenter.writeModuleCanvases();
     }
 }
