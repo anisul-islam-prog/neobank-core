@@ -520,6 +520,56 @@ Access metrics at: `http://localhost:8080/actuator/prometheus`
 4. Run tests: `./mvnw clean test`
 5. Submit a pull request
 
+For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## Roadmap
+
+We have exciting plans for NeoBank Core! Here's what's coming:
+
+### Phase 1: Core Banking Features
+
+- [ ] **Loans Module**: Implementing interest calculation with Scoped Value API (Java 25)
+  - Loan origination workflow
+  - Amortization schedules
+  - Early repayment handling
+  - Risk-based interest rates
+
+### Phase 2: Security & Authentication
+
+- [ ] **Auth Module**: JWT-based security using Spring Security 7
+  - User registration and login
+  - Role-based access control (RBAC)
+  - OAuth2 provider integration
+  - Session management with Redis
+
+### Phase 3: User Experience
+
+- [ ] **Frontend**: A lightweight React/Next.js dashboard
+  - Account overview and analytics
+  - Transfer history with filters
+  - Real-time notifications
+  - Fraud alert dashboard
+
+### Phase 4: Advanced Features
+
+- [ ] **Multi-currency Support**: FX conversion and international transfers
+- [ ] **Scheduled Transfers**: Recurring payments and standing orders
+- [ ] **Budgeting Tools**: Spending categorization and limits
+- [ ] **Open Banking**: PSD2-compliant API for third-party integrations
+
+### Phase 5: Infrastructure
+
+- [ ] **Kubernetes Deployment**: Helm charts for cloud-native deployment
+- [ ] **Event Sourcing**: Full audit trail with event replay capability
+- [ ] **GraphQL API**: Alternative query layer for flexible data fetching
+- [ ] **gRPC Services**: High-performance inter-service communication
+
+---
+
+Have ideas or want to contribute to these features? Check out [CONTRIBUTING.md](CONTRIBUTING.md) and join us!
+
 ---
 
 ## License
