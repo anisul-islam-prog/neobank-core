@@ -21,4 +21,10 @@ public interface AccountApi {
     Account getAccountById(UUID id);
 
     Account updateAccount(Account account);
+
+    /**
+     * Get an account with pessimistic write lock for concurrent operations.
+     * Use this method when performing balance updates to prevent race conditions.
+     */
+    Account getAccountWithLock(UUID id);
 }

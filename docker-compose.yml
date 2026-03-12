@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: neobank-postgres
+    environment:
+      POSTGRES_DB: neobank
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: neobank-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama ps > /dev/null 2>&1 && ollama run llama3.2 'hello' > /dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 60s
+      retries: 5
+      start_period: 120s
+    profiles:
+      - local
+      - test
+
+  neobank-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: neobank-core
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+        required: false
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/neobank
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-your_dummy_key_here}
+      SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - local
+
+  neobank-core-cloud:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: neobank-core-cloud
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/neobank
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-your_dummy_key_here}
+      SPRING_PROFILES_ACTIVE: openai
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - openai
+
+volumes:
+  postgres_data:
+  ollama_data:
