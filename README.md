@@ -1,115 +1,132 @@
 # NeoBank Core
 
+![Java CI](https://github.com/anisul-islam-prog/neobank-core/actions/workflows/ci.yml/badge.svg)
+
 A next-generation banking platform built with cutting-edge Java technologies and modular architecture. Features AI-powered fraud detection, resilient event-driven design, and strict architectural boundaries.
+
+---
+
+## Prerequisites
+
+Before running NeoBank Core, ensure you have the following installed:
+
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| **Java** | 25+ | Runtime environment (virtual threads support) |
+| **Maven** | 3.9+ | Build and dependency management |
+| **Docker** | 24+ | Containerization for PostgreSQL and Ollama |
+
+---
 
 ## High-Level Architecture
 
-```plantuml
-@startuml
-set separator none
-title NeoBankCoreApplication
+```mermaid
+graph TD
+    subgraph NeoBank["NeoBank Core Application"]
+        direction TB
+        Accounts["📊 Accounts Module<br/>Account management"]
+        Transfers["💸 Transfers Module<br/>Fund transfers with circuit breaker"]
+        Fraud["🔍 Fraud Module<br/>AI-powered fraud detection"]
+        Notifications["📬 Notifications Module<br/>Async notifications"]
+    end
 
-top to bottom direction
+    Transfers -->|uses| Accounts
+    Fraud -->|listens to| Transfers
+    Notifications -->|listens to| Transfers
 
-!include <C4/C4>
-!include <C4/C4_Context>
-!include <C4/C4_Component>
-
-Container_Boundary("NeoBankCoreApplication.NeoBankCoreApplication_boundary", "NeoBankCoreApplication", $tags="") {
-  Component(NeoBankCoreApplication.NeoBankCoreApplication.Accounts, "Accounts", $techn="Module", $descr="Account management", $tags="", $link="")
-  Component(NeoBankCoreApplication.NeoBankCoreApplication.Transfers, "Transfers", $techn="Module", $descr="Fund transfers with circuit breaker", $tags="", $link="")
-  Component(NeoBankCoreApplication.NeoBankCoreApplication.Fraud, "Fraud", $techn="Module", $descr="AI-powered fraud detection", $tags="", $link="")
-  Component(NeoBankCoreApplication.NeoBankCoreApplication.Notifications, "Notifications", $techn="Module", $descr="Async notifications", $tags="", $link="")
-}
-
-Rel(NeoBankCoreApplication.NeoBankCoreApplication.Fraud, NeoBankCoreApplication.NeoBankCoreApplication.Transfers, "listens to", $techn="", $tags="", $link="")
-Rel(NeoBankCoreApplication.NeoBankCoreApplication.Transfers, NeoBankCoreApplication.NeoBankCoreApplication.Accounts, "uses", $techn="", $tags="", $link="")
-Rel(NeoBankCoreApplication.NeoBankCoreApplication.Notifications, NeoBankCoreApplication.NeoBankCoreApplication.Transfers, "listens to", $techn="", $tags="", $link="")
-
-SHOW_LEGEND(true)
-@enduml
+    style NeoBank fill:#f9f9f9,stroke:#333,stroke-width:2px
+    style Accounts fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style Transfers fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    style Fraud fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style Notifications fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
 ```
 
 ### Architecture Overview
 
-- **Accounts Module**: Account creation, retrieval, and balance management
-- **Transfers Module**: Atomic fund transfers with Resilience4j circuit breaker protection
-- **Notifications Module**: Asynchronous event listener for sending transfer notifications
-- **Fraud Module**: AI-powered fraud analysis using Spring AI, listens to transfer events
+| Module | Responsibility | Key Features |
+|--------|---------------|--------------|
+| **Accounts** | Account creation, retrieval, and balance management | Pessimistic locking, JSONB transaction history |
+| **Transfers** | Atomic fund transfers with circuit breaker protection | Resilience4j, event publishing, async processing |
+| **Fraud** | AI-powered fraud analysis | Hybrid AI (OpenAI/Ollama), risk scoring, Micrometer tracking |
+| **Notifications** | Asynchronous event listener | Transaction notifications, non-blocking |
 
-All modules communicate through Spring Modulith's enforced boundaries, ensuring loose coupling and architectural integrity.
+All modules communicate through **Spring Modulith's** enforced boundaries, ensuring loose coupling and architectural integrity.
+
+---
 
 ## Tech Stack
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| **Java** | 25 | Virtual threads, records, pattern matching |
-| **Spring Boot** | 4.0.0 | Application framework |
-| **Spring Modulith** | 1.4.0 | Modular architecture enforcement |
-| **Spring AI** | 2.0.0-M1 | Hybrid AI (OpenAI/Ollama) for fraud detection |
-| **Resilience4j** | 2.3.0 | Circuit breaker pattern for fault tolerance |
-| **Spring Data JPA** | - | Database access layer |
-| **PostgreSQL** | 17 | Production database |
-| **Testcontainers** | 2.0.3 | Integration testing with real PostgreSQL |
-| **Micrometer** | - | Metrics and observability (Prometheus) |
-| **OpenAPI/Swagger** | 2.8.9 | API documentation |
-| **Ollama** | latest | Local AI model runner (llama3.2) |
+| Java | 25 | Virtual threads, records, pattern matching |
+| Spring Boot | 4.0.0 | Application framework |
+| Spring Modulith | 1.4.0 | Modular architecture enforcement |
+| Spring AI | 2.0.0-M1 | Hybrid AI (OpenAI/Ollama) for fraud detection |
+| Resilience4j | 2.3.0 | Circuit breaker pattern for fault tolerance |
+| Spring Data JPA | - | Database access layer |
+| PostgreSQL | 17 | Production database |
+| Testcontainers | 2.0.3 | Integration testing with real PostgreSQL |
+| Micrometer | - | Metrics and observability (Prometheus) |
+| OpenAPI/Swagger | 2.8.9 | API documentation |
+| Ollama | latest | Local AI model runner (llama3.2) |
+
+---
 
 ## Key Features
 
 ### Java 25
-Leverages the latest Java features for modern, efficient code:
-- **Virtual Threads** (Project Loom) - High-throughput concurrency with lightweight threads
+- **Virtual Threads** (Project Loom) - High-throughput concurrency
 - **Records** - Immutable data carriers with concise syntax
 - **Pattern Matching** - Enhanced type checking and data extraction
 
 ### Spring Modulith
-Enforces strict architectural boundaries at runtime:
 - Module isolation and dependency validation
 - Automated architecture documentation generation
 - Prevents architectural drift through verification tests
-- **Persistent Event Registry** - Events stored in database until successfully processed
+- **Persistent Event Registry** - Events stored until successfully processed
 
 ### Spring AI
-AI-powered fraud detection:
-- OpenAI integration for transaction risk analysis
-- Automatic token usage tracking via Micrometer observations
+- Hybrid AI support (OpenAI cloud / Ollama local)
+- Automatic token usage tracking via Micrometer
 - Configurable risk thresholds with priority alerts
 
 ### Resilience4j Circuit Breakers
-Fault tolerance for production resilience:
-- Automatic circuit breaking when failure rates exceed thresholds
+- Automatic circuit breaking when failure rates exceed 50%
 - Graceful degradation with fallback responses
 - Self-healing after configurable recovery periods
 
 ### PostgreSQL with Testcontainers
-Production-grade database testing:
-- Real PostgreSQL instances in Docker containers for integration tests
+- Real PostgreSQL instances in Docker for integration tests
 - No local database setup required
 - Consistent, reproducible test environments
+
+---
 
 ## Resilience Features
 
 ### Event Registry (Spring Modulith)
-Domain events are persisted to the `event_publication` table, ensuring:
-- **Durability**: Events survive application restarts
-- **Reliability**: Failed event listeners are automatically retried
-- **Consistency**: Events are only published after transaction commit
+Domain events persisted to `event_publication` table:
 
-Configuration:
+| Feature | Benefit |
+|---------|---------|
+| **Durability** | Events survive application restarts |
+| **Reliability** | Failed listeners automatically retried |
+| **Consistency** | Events published after transaction commit |
+
 ```properties
 spring.modulith.events.republish-outstanding-events-on-restart=true
 spring.modulith.events.replication.period=60
 ```
 
 ### Circuit Breaker (Resilience4j)
-The transfer API is protected by a circuit breaker that:
-- **Opens** when failure rate exceeds 50% over 10 calls
-- **Returns 503** "Service Temporarily Unavailable" when open
-- **Half-opens** after 30 seconds to test recovery
-- **Closes** when 3 consecutive calls succeed
 
-Configuration:
+| Setting | Value | Description |
+|---------|-------|-------------|
+| `failure-rate-threshold` | 50% | Opens when 50% calls fail |
+| `wait-duration-in-open-state` | 30s | Time before half-open |
+| `minimum-number-of-calls` | 5 | Min calls before evaluation |
+| `sliding-window-size` | 10 | Call window for calculation |
+
 ```properties
 resilience4j.circuitbreaker.instances.transfer.failure-rate-threshold=50
 resilience4j.circuitbreaker.instances.transfer.wait-duration-in-open-state=30s
@@ -117,15 +134,19 @@ resilience4j.circuitbreaker.instances.transfer.minimum-number-of-calls=5
 ```
 
 ### AI Fraud Detection
-The Fraud module analyzes every transfer asynchronously:
-- Receives `TransferCompletedEvent` after transaction commit
-- Sends transaction details to AI for risk scoring (0-100)
-- Logs `[FRAUD ALERT]` for scores > 80
-- Token usage tracked via Micrometer (`gen_ai.client.token.usage`)
+
+| Feature | Description |
+|---------|-------------|
+| **Async Processing** | Non-blocking analysis via `@Async` |
+| **Risk Scoring** | 0-100 score per transaction |
+| **Alert Threshold** | `[FRAUD ALERT]` logged for scores > 80 |
+| **Observability** | Token usage tracked via `gen_ai.client.token.usage` |
+
+---
 
 ## Hybrid AI Strategy (Local vs. Cloud)
 
-NeoBank supports multiple AI providers through Spring AI's abstraction layer. Switch between cloud-based (OpenAI) and local (Ollama) models using Spring profiles.
+NeoBank supports multiple AI providers through Spring AI's abstraction layer.
 
 ### Supported Providers
 
@@ -149,8 +170,6 @@ export OPENAI_API_KEY=sk-...
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=openai
 ```
 
----
-
 ### Method 1: Maven Command Line (Recommended for Development)
 
 ```bash
@@ -161,8 +180,6 @@ export OPENAI_API_KEY=sk-...
 export OPENAI_API_KEY=your-api-key-here
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=openai
 ```
-
----
 
 ### Method 2: Java JAR Command (Production Deployment)
 
@@ -177,8 +194,6 @@ java -jar target/neobank-core-0.0.1-SNAPSHOT.jar \
     --spring.ai.openai.api-key=your-api-key-here
 ```
 
----
-
 ### Method 3: Environment Variable
 
 ```bash
@@ -192,8 +207,6 @@ export OPENAI_API_KEY=your-api-key-here
 ./mvnw spring-boot:run
 ```
 
----
-
 ### Method 4: Permanent Configuration Change
 
 Edit `src/main/resources/application.properties`:
@@ -202,8 +215,6 @@ Edit `src/main/resources/application.properties`:
 # Change this line to switch default provider
 spring.profiles.active=local    # or 'openai' for cloud-first
 ```
-
----
 
 ### Method 5: Docker Compose Profiles
 
@@ -223,11 +234,7 @@ docker-compose --profile openai up -d
 | `local` | PostgreSQL, Ollama, NeoBank | 5432, 11434, 8080 | Development, testing |
 | `openai` | PostgreSQL, NeoBank | 5432, 8081 | Production, CI/CD |
 
----
-
 ### Verification
-
-After starting, verify the active profile:
 
 ```bash
 # Check application info endpoint
@@ -237,26 +244,22 @@ curl http://localhost:8080/actuator/info | jq .
 docker logs neobank-core | grep -i "ollama\|openai"
 ```
 
-Expected log output for **local** profile:
+**Expected log output for local profile:**
 ```
 Using Ollama Chat API at http://localhost:11434
 Model: llama3.2
 ```
 
-Expected log output for **openai** profile:
+**Expected log output for openai profile:**
 ```
 Using OpenAI Chat API
 Model: gpt-4o-mini
 ```
 
----
-
 ### Fraud Detection Test
 
-Trigger a transfer to test fraud analysis:
-
 ```bash
-# Create accounts first
+# Create accounts
 curl -X POST http://localhost:8080/api/accounts \
     -H "Content-Type: application/json" \
     -d '{"ownerName": "Alice", "balance": 1000}'
@@ -265,7 +268,7 @@ curl -X POST http://localhost:8080/api/accounts \
     -H "Content-Type: application/json" \
     -d '{"ownerName": "Bob", "balance": 500}'
 
-# Then transfer and watch fraud analysis in logs
+# Transfer and watch fraud analysis
 curl -X POST http://localhost:8080/api/transfers \
     -H "Content-Type: application/json" \
     -d '{"fromId": "<alice-id>", "toId": "<bob-id>", "amount": 100}'
@@ -273,8 +276,6 @@ curl -X POST http://localhost:8080/api/transfers \
 # Check fraud logs
 docker logs neobank-core | grep -i "fraud\|risk"
 ```
-
----
 
 ### Troubleshooting
 
@@ -297,14 +298,6 @@ curl https://api.openai.com/v1/models \
     -H "Authorization: Bearer $OPENAI_API_KEY"
 ```
 
-**Check active profile:**
-```bash
-# View boot log for profile info
-docker logs neobank-core | grep "Active profiles"
-```
-
----
-
 ### Cost Considerations
 
 | Aspect | Local (Ollama) | Cloud (OpenAI) |
@@ -315,16 +308,11 @@ docker logs neobank-core | grep "Active profiles"
 | **Accuracy** | Good for standard patterns | Higher for edge cases |
 | **Privacy** | All data stays local | Data sent to OpenAI |
 
-**Recommendation:** Use **local** for development and testing. Switch to **openai** for production where higher accuracy justifies the cost.
+> **Recommendation:** Use **local** for development and testing. Switch to **openai** for production where higher accuracy justifies the cost.
+
+---
 
 ## Getting Started
-
-### Prerequisites
-
-- Java 25
-- Maven
-- Docker (for Testcontainers and docker-compose)
-- OpenAI API key (for cloud mode) OR Ollama installed (for local mode)
 
 ### Environment Variables
 
@@ -344,11 +332,9 @@ export POSTGRES_URL=jdbc:postgresql://localhost:5432/neobank
 ./mvnw clean test
 ```
 
----
-
 ### Fraud Detection Tests: AI Provider Configuration
 
-Tests can run with either **Ollama (local)** or **OpenAI (cloud)** for fraud detection validation.
+Tests can run with either **Ollama (local)** or **OpenAI (cloud)**.
 
 #### Default: Test with Ollama (Docker)
 
@@ -381,17 +367,10 @@ FRAUD_TEST_USE_OPENAI=true ./mvnw clean test
 
 #### Test Behavior
 
-- **Ollama mode** (`FRAUD_TEST_USE_OPENAI=false`):
-  - Connects to Ollama at `http://localhost:11434`
-  - Uses `llama3.2` model
-  - No API costs
-  - Requires Docker with Ollama container running
-
-- **OpenAI mode** (`FRAUD_TEST_USE_OPENAI=true`):
-  - Connects to OpenAI API
-  - Uses `gpt-4o-mini` model
-  - Incurs API costs (~$0.0001-0.001 per test)
-  - Requires valid `OPENAI_API_KEY`
+| Mode | Configuration | Connection | Model | Cost |
+|------|---------------|------------|-------|------|
+| **Ollama** | `FRAUD_TEST_USE_OPENAI=false` | `http://localhost:11434` | llama3.2 | Free |
+| **OpenAI** | `FRAUD_TEST_USE_OPENAI=true` | OpenAI API | gpt-4o-mini | API costs |
 
 #### Troubleshooting Test Failures
 
@@ -417,13 +396,31 @@ curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
 FRAUD_TEST_USE_OPENAI=true ./mvnw clean test
 ```
 
----
-
 ### Run with Docker Compose
 
 ```bash
-docker-compose up -d
+# Local development (Ollama + NeoBank on port 8080)
+docker-compose --profile local up -d
+
+# Production (OpenAI + NeoBank on port 8081)
+export OPENAI_API_KEY=your-api-key
+docker-compose --profile openai up -d
 ```
+
+### Services
+
+| Profile | Services | Ports |
+|---------|----------|-------|
+| **local** | PostgreSQL, Ollama, NeoBank Core | 5432, 11434, 8080 |
+| **openai** | PostgreSQL, NeoBank Core | 5432, 8081 |
+
+### Health Checks
+
+| Service | Check |
+|---------|-------|
+| **PostgreSQL** | `pg_isready -U postgres` |
+| **Ollama** | Verifies model pull and availability |
+| **NeoBank Core** | `GET /actuator/health` |
 
 ### Run the Application (Local)
 
@@ -434,8 +431,11 @@ docker-compose up -d
 ### API Documentation
 
 OpenAPI documentation is auto-generated via springdoc-openapi:
-- **Swagger UI**: `http://localhost:8080/swagger-ui.html`
-- **OpenAPI JSON**: `http://localhost:8080/v3/api-docs`
+
+| Endpoint | URL |
+|----------|-----|
+| **Swagger UI** | `http://localhost:8080/swagger-ui.html` |
+| **OpenAPI JSON** | `http://localhost:8080/v3/api-docs` |
 
 ### Architecture Documentation
 
@@ -446,6 +446,8 @@ C4/PlantUML diagrams are generated via Spring Modulith's `Documenter`:
 ```
 
 Generated docs are output to `target/modulith-docs/`.
+
+---
 
 ## Project Structure
 
@@ -472,62 +474,43 @@ com.neobank
     └── FraudAnalysisConfig.java
 ```
 
+---
+
 ## Module Boundaries
 
 Spring Modulith enforces that modules only communicate through their public APIs:
 
-- **accounts**: Account creation, retrieval, and management
-- **transfers**: Fund transfers with atomic transactions and event publishing
-- **notifications**: Asynchronous event listeners for side effects
-- **fraud**: AI-powered fraud analysis (listens to transfers)
+| Module | Responsibility |
+|--------|---------------|
+| **accounts** | Account creation, retrieval, and management |
+| **transfers** | Fund transfers with atomic transactions and event publishing |
+| **notifications** | Asynchronous event listeners for side effects |
+| **fraud** | AI-powered fraud analysis (listens to transfers) |
+
+---
 
 ## Observability
 
 ### Metrics
+
 Micrometer with Prometheus registry tracks:
-- Transfer rate (transfers per second)
-- Circuit breaker state transitions
-- Event publication success/failure rates
-- AI token usage (`gen_ai.client.token.usage`)
+
+| Metric | Description |
+|--------|-------------|
+| Transfer rate | Transfers per second |
+| Circuit breaker state | State transitions |
+| Event publication | Success/failure rates |
+| AI token usage | `gen_ai.client.token.usage` |
 
 Access metrics at: `http://localhost:8080/actuator/prometheus`
 
 ### Tracing
+
 - Micrometer tracing enabled for all AI operations
 - Token counts tracked per transaction
 - Configurable observation include/exclude settings
 
-## Docker Deployment
-
-### Build Docker Image
-
-```bash
-docker build -t neobank-core:latest .
-```
-
-### Run with Docker Compose
-
-```bash
-# Local development (Ollama + NeoBank on port 8080)
-docker-compose --profile local up -d
-
-# Production (OpenAI + NeoBank on port 8081)
-export OPENAI_API_KEY=your-api-key
-docker-compose --profile openai up -d
-```
-
-### Services
-
-| Profile | Services | Ports |
-|---------|----------|-------|
-| **local** | PostgreSQL, Ollama, NeoBank Core | 5432, 11434, 8080 |
-| **openai** | PostgreSQL, NeoBank Core | 5432, 8081 |
-
-### Health Checks
-
-- **PostgreSQL**: `pg_isready -U postgres`
-- **Ollama**: Verifies model pull and availability
-- **NeoBank Core**: `GET /actuator/health`
+---
 
 ## Contributing
 
@@ -537,6 +520,32 @@ docker-compose --profile openai up -d
 4. Run tests: `./mvnw clean test`
 5. Submit a pull request
 
+---
+
 ## License
 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+```
 MIT License
+
+Copyright (c) 2026 NeoBank Core
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
