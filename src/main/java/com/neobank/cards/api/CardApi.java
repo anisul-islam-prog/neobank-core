@@ -1,4 +1,9 @@
-package com.neobank.cards;
+package com.neobank.cards.api;
+
+import com.neobank.cards.CardDetails;
+import com.neobank.cards.CardIssuanceRequest;
+import com.neobank.cards.CardIssuanceResult;
+import com.neobank.cards.CardStatus;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -8,7 +13,6 @@ import java.util.UUID;
  * Public API interface for the cards module.
  * Defines the contract for card issuance and management.
  */
-@org.springframework.modulith.NamedInterface("card-api")
 public interface CardApi {
 
     /**

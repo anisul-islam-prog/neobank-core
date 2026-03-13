@@ -2,7 +2,19 @@
 
 ![Java CI](https://github.com/anisul-islam-prog/neobank-core/actions/workflows/ci.yml/badge.svg)
 
-A next-generation banking platform built with cutting-edge Java technologies and modular architecture. Features AI-powered fraud detection, resilient event-driven design, and strict architectural boundaries.
+A next-generation banking platform built with cutting-edge Java technologies and modular architecture. Features AI-powered fraud detection, resilient event-driven design, JWT authentication, and a modern Next.js dashboard.
+
+---
+
+## Development Status
+
+| Phase | Module | Status | Description |
+|-------|--------|--------|-------------|
+| **Phase 1** | Loans & Cards | ✅ Complete | Loan origination with ScopedValue, card management with AES-256 encryption |
+| **Phase 2** | Security & Auth | ✅ Complete | JWT authentication, BCrypt passwords, role-based access control |
+| **Phase 3** | Frontend Dashboard | ✅ Complete | Next.js + Tailwind CSS with secure card reveal functionality |
+| **Phase 4** | Advanced Features | 📋 Planned | Multi-currency, scheduled transfers, budgeting tools |
+| **Phase 5** | Infrastructure | 📋 Planned | Kubernetes, event sourcing, GraphQL API |
 
 ---
 
@@ -12,9 +24,49 @@ Before running NeoBank Core, ensure you have the following installed:
 
 | Requirement | Version | Purpose |
 |-------------|---------|---------|
-| **Java** | 25+ | Runtime environment (virtual threads support) |
+| **Java** | 25+ | Backend runtime (virtual threads support) |
 | **Maven** | 3.9+ | Build and dependency management |
+| **Node.js** | 18+ | Frontend development |
 | **Docker** | 24+ | Containerization for PostgreSQL and Ollama |
+
+---
+
+## Quick Start
+
+### 1. Start Backend (Spring Boot)
+
+```bash
+# Clone and navigate to project
+cd neobank-core
+
+# Run with Maven
+./mvnw spring-boot:run
+
+# Backend will be available at http://localhost:8080
+# API docs at http://localhost:8080/swagger-ui.html
+```
+
+### 2. Start Frontend (Next.js)
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies (first time only)
+npm install
+
+# Start development server
+npm run dev
+
+# Frontend will be available at http://localhost:3000
+```
+
+### 3. Access the Application
+
+1. Open http://localhost:3000 in your browser
+2. Register a new account or login
+3. View your dashboard with accounts and cards
+4. Use the "Reveal" button to see full card details
 
 ---
 
@@ -22,33 +74,72 @@ Before running NeoBank Core, ensure you have the following installed:
 
 ```mermaid
 graph TD
-    subgraph NeoBank["NeoBank Core Application"]
+    subgraph Frontend["🖥️ Frontend (Next.js + Tailwind CSS)"]
         direction TB
-        Accounts["📊 Accounts Module<br/>Account management"]
-        Transfers["💸 Transfers Module<br/>Fund transfers with circuit breaker"]
-        Fraud["🔍 Fraud Module<br/>AI-powered fraud detection"]
-        Notifications["📬 Notifications Module<br/>Async notifications"]
+        Login["🔑 Login Page<br/>JWT Authentication"]
+        Dashboard["📊 Dashboard<br/>Accounts & Cards"]
     end
 
+    subgraph Backend["🔧 Backend (Spring Boot 4)"]
+        direction TB
+        Auth["🔐 Auth Module<br/>JWT & BCrypt"]
+        Accounts["📊 Accounts Module<br/>Account Management"]
+        Transfers["💸 Transfers Module<br/>Circuit Breaker"]
+        Loans["💰 Loans Module<br/>ScopedValue Risk"]
+        Cards["💳 Cards Module<br/>AES-256 Encryption"]
+        Fraud["🔍 Fraud Module<br/>AI Analysis"]
+        Notifications["📬 Notifications<br/>Event Listeners"]
+    end
+
+    subgraph Data["💾 Data Layer"]
+        PostgreSQL[("🐘 PostgreSQL<br/>Main Database")]
+        Ollama[("🤖 Ollama<br/>Local AI")]
+    end
+
+    Frontend -->|HTTPS + JWT| Backend
+    Login -->|POST /api/auth/login| Auth
+    Dashboard -->|GET /api/*| Backend
+    Dashboard -->|GET /api/cards/{id}/reveal| Cards
+    
+    Auth -->|publishes UserCreatedEvent| Accounts
+    Accounts -->|listens to| Auth
+    Loans -->|uses| Accounts
+    Cards -->|uses| Accounts
     Transfers -->|uses| Accounts
     Fraud -->|listens to| Transfers
     Notifications -->|listens to| Transfers
+    
+    Backend -->|JDBC| PostgreSQL
+    Fraud -->|HTTP| Ollama
 
-    style NeoBank fill:#f9f9f9,stroke:#333,stroke-width:2px
+    style Frontend fill:#e0f2fe,stroke:#0284c7,stroke-width:2px
+    style Backend fill:#fef3c7,stroke:#d97706,stroke-width:2px
+    style Data fill:#d1fae5,stroke:#059669,stroke-width:2px
+    style Login fill:#dbeafe,stroke:#2563eb,stroke-width:2px
+    style Dashboard fill:#dbeafe,stroke:#2563eb,stroke-width:2px
+    style Auth fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style Accounts fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
     style Transfers fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    style Fraud fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style Loans fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style Cards fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style Fraud fill:#fce4ec,stroke:#880e4f,stroke-width:2px
     style Notifications fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style PostgreSQL fill:#a7f3d0,stroke:#059669,stroke-width:2px
+    style Ollama fill:#a7f3d0,stroke:#059669,stroke-width:2px
 ```
 
 ### Architecture Overview
 
 | Module | Responsibility | Key Features |
 |--------|---------------|--------------|
-| **Accounts** | Account creation, retrieval, and balance management | Pessimistic locking, JSONB transaction history |
+| **Auth** | User authentication & authorization | JWT tokens, BCrypt passwords, UserCreatedEvent publishing |
+| **Accounts** | Account creation, retrieval, and balance management | Pessimistic locking, JSONB transaction history, auto-creation on user registration |
 | **Transfers** | Atomic fund transfers with circuit breaker protection | Resilience4j, event publishing, async processing |
+| **Loans** | Loan origination and management | ScopedValue risk context, interest calculation, amortization schedules |
+| **Cards** | Card lifecycle and spending management | AES-256-GCM encryption, status controls, MCC filtering, secure reveal endpoint |
 | **Fraud** | AI-powered fraud analysis | Hybrid AI (OpenAI/Ollama), risk scoring, Micrometer tracking |
 | **Notifications** | Asynchronous event listener | Transaction notifications, non-blocking |
+| **Frontend** | Next.js dashboard | JWT authentication, account overview, card management with reveal |
 
 All modules communicate through **Spring Modulith's** enforced boundaries, ensuring loose coupling and architectural integrity.
 
@@ -56,19 +147,34 @@ All modules communicate through **Spring Modulith's** enforced boundaries, ensur
 
 ## Tech Stack
 
+### Backend
+
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | Java | 25 | Virtual threads, records, pattern matching |
 | Spring Boot | 4.0.0 | Application framework |
 | Spring Modulith | 1.4.0 | Modular architecture enforcement |
 | Spring AI | 2.0.0-M1 | Hybrid AI (OpenAI/Ollama) for fraud detection |
+| Spring Security | 7.0.0 | JWT authentication & authorization |
 | Resilience4j | 2.3.0 | Circuit breaker pattern for fault tolerance |
 | Spring Data JPA | - | Database access layer |
+| JJWT | 0.12.6 | JWT token generation and validation |
 | PostgreSQL | 17 | Production database |
 | Testcontainers | 2.0.3 | Integration testing with real PostgreSQL |
 | Micrometer | - | Metrics and observability (Prometheus) |
 | OpenAPI/Swagger | 2.8.9 | API documentation |
 | Ollama | latest | Local AI model runner (llama3.2) |
+
+### Frontend
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Next.js | 14.2 | React framework with App Router |
+| React | 18.3 | UI component library |
+| TypeScript | 5.4 | Type safety |
+| Tailwind CSS | 3.4 | Utility-first CSS framework |
+| js-cookie | 3.0 | JWT cookie management |
+| Axios | 1.6 | HTTP client |
 
 ---
 
@@ -396,7 +502,39 @@ curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
 FRAUD_TEST_USE_OPENAI=true ./mvnw clean test
 ```
 
-### Run with Docker Compose
+### Running the Application
+
+#### Option 1: Backend Only (API Mode)
+
+```bash
+# Start backend only
+./mvnw spring-boot:run
+
+# Access API at http://localhost:8080
+# Swagger UI at http://localhost:8080/swagger-ui.html
+```
+
+#### Option 2: Full Stack (Backend + Frontend)
+
+**Terminal 1 - Backend:**
+```bash
+cd neobank-core
+./mvnw spring-boot:run
+```
+
+**Terminal 2 - Frontend:**
+```bash
+cd frontend
+npm install  # First time only
+npm run dev
+```
+
+**Access:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8080
+- Swagger UI: http://localhost:8080/swagger-ui.html
+
+#### Option 3: Docker Compose (Backend + Database)
 
 ```bash
 # Local development (Ollama + NeoBank on port 8080)
@@ -405,6 +543,13 @@ docker-compose --profile local up -d
 # Production (OpenAI + NeoBank on port 8081)
 export OPENAI_API_KEY=your-api-key
 docker-compose --profile openai up -d
+```
+
+**Then start frontend separately:**
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
 ### Services
@@ -421,12 +566,7 @@ docker-compose --profile openai up -d
 | **PostgreSQL** | `pg_isready -U postgres` |
 | **Ollama** | Verifies model pull and availability |
 | **NeoBank Core** | `GET /actuator/health` |
-
-### Run the Application (Local)
-
-```bash
-./mvnw spring-boot:run
-```
+| **Frontend** | `GET /` at port 3000 |
 
 ### API Documentation
 

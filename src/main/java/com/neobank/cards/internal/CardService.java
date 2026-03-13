@@ -1,6 +1,7 @@
 package com.neobank.cards.internal;
 
 import com.neobank.cards.*;
+import com.neobank.cards.api.CardApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
