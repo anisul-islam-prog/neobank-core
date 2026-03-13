@@ -99,7 +99,7 @@ graph TD
     Frontend -->|HTTPS + JWT| Backend
     Login -->|POST /api/auth/login| Auth
     Dashboard -->|GET /api/*| Backend
-    Dashboard -->|GET /api/cards/{id}/reveal| Cards
+    Dashboard -->|GET /api/cards/reveal| Cards
     
     Auth -->|publishes UserCreatedEvent| Accounts
     Accounts -->|listens to| Auth
