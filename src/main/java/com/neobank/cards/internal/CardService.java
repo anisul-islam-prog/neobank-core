@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
@@ -17,6 +16,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Internal card service implementing card lifecycle management.
+ * Uses AES-256-GCM encryption for secure card number storage.
  */
 @Service
 @Transactional
@@ -26,10 +26,13 @@ class CardService implements CardApi {
 
     private final CardRepository cardRepository;
     private final CardMapper cardMapper;
+    private final EncryptionService encryptionService;
 
-    public CardService(CardRepository cardRepository, CardMapper cardMapper) {
+    public CardService(CardRepository cardRepository, CardMapper cardMapper,
+                       EncryptionService encryptionService) {
         this.cardRepository = cardRepository;
         this.cardMapper = cardMapper;
+        this.encryptionService = encryptionService;
     }
 
     @Override
@@ -38,19 +41,14 @@ class CardService implements CardApi {
             // Generate card number (simulated - in production, use proper BIN and Luhn algorithm)
             String cardNumber = generateCardNumber();
             String cardNumberMasked = maskCardNumber(cardNumber);
-            String cardNumberHash = hashCardNumber(cardNumber);
+            String cardNumberEncrypted = encryptionService.encrypt(cardNumber);
 
-            // Check for duplicates
-            if (cardRepository.existsByCardNumberHash(cardNumberHash)) {
-                return CardIssuanceResult.failure("Card generation conflict, please retry");
-            }
-
-            // Generate CVV hash (simulated CVV)
+            // Generate CVV and encrypt
             String cvv = String.format("%03d", ThreadLocalRandom.current().nextInt(1000));
-            String cvvHash = hashCardNumber(cvv);
+            String cvvEncrypted = encryptionService.encrypt(cvv);
 
             // Create card entity
-            CardEntity entity = cardMapper.toEntity(request, cardNumberMasked, cardNumberHash, cvvHash);
+            CardEntity entity = cardMapper.toEntity(request, cardNumberMasked, cardNumberEncrypted, cvvEncrypted);
             cardRepository.save(entity);
 
             log.info("Card issued: {} for account: {}", entity.getId(), request.accountId());
@@ -105,6 +103,26 @@ class CardService implements CardApi {
     }
 
     /**
+     * Get decrypted card number for secure operations.
+     * Package-private for internal use only.
+     */
+    String getDecryptedCardNumber(UUID cardId) {
+        return cardRepository.findById(cardId)
+                .map(entity -> encryptionService.decrypt(entity.getCardNumberEncrypted()))
+                .orElse(null);
+    }
+
+    /**
+     * Get decrypted CVV for secure operations.
+     * Package-private for internal use only.
+     */
+    String getDecryptedCvv(UUID cardId) {
+        return cardRepository.findById(cardId)
+                .map(entity -> encryptionService.decrypt(entity.getCvvEncrypted()))
+                .orElse(null);
+    }
+
+    /**
      * Generate a simulated 16-digit card number.
      */
     private String generateCardNumber() {
@@ -124,25 +142,6 @@ class CardService implements CardApi {
     private String maskCardNumber(String cardNumber) {
         String lastFour = cardNumber.substring(cardNumber.length() - 4);
         return "****-****-****-" + lastFour;
-    }
-
-    /**
-     * Hash card number for secure storage.
-     */
-    private String hashCardNumber(String data) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(data.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hash) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
-                hexString.append(hex);
-            }
-            return hexString.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Failed to hash card number", e);
-        }
     }
 
     /**

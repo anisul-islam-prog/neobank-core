@@ -21,10 +21,10 @@ interface CardRepository extends JpaRepository<CardEntity, UUID> {
     List<CardEntity> findByAccountId(UUID accountId);
 
     /**
-     * Check if a card number hash already exists.
+     * Check if a card number encrypted value already exists.
      *
-     * @param cardNumberHash the hashed card number
+     * @param cardNumberEncrypted the encrypted card number
      * @return true if exists
      */
-    boolean existsByCardNumberHash(String cardNumberHash);
+    boolean existsByCardNumberEncrypted(String cardNumberEncrypted);
 }

@@ -41,14 +41,14 @@ class CardEntity {
     @Column(name = "card_number_masked", nullable = false, unique = true)
     private String cardNumberMasked;
 
-    @Column(name = "card_number_hash", nullable = false)
-    private String cardNumberHash;
+    @Column(name = "card_number_encrypted", nullable = false)
+    private String cardNumberEncrypted;
 
     @Column(name = "expiry_date", nullable = false)
     private YearMonth expiryDate;
 
-    @Column(name = "cvv_hash", nullable = false)
-    private String cvvHash;
+    @Column(name = "cvv_encrypted", nullable = false)
+    private String cvvEncrypted;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -124,12 +124,12 @@ class CardEntity {
         this.cardNumberMasked = cardNumberMasked;
     }
 
-    public String getCardNumberHash() {
-        return cardNumberHash;
+    public String getCardNumberEncrypted() {
+        return cardNumberEncrypted;
     }
 
-    public void setCardNumberHash(String cardNumberHash) {
-        this.cardNumberHash = cardNumberHash;
+    public void setCardNumberEncrypted(String cardNumberEncrypted) {
+        this.cardNumberEncrypted = cardNumberEncrypted;
     }
 
     public YearMonth getExpiryDate() {
@@ -140,12 +140,12 @@ class CardEntity {
         this.expiryDate = expiryDate;
     }
 
-    public String getCvvHash() {
-        return cvvHash;
+    public String getCvvEncrypted() {
+        return cvvEncrypted;
     }
 
-    public void setCvvHash(String cvvHash) {
-        this.cvvHash = cvvHash;
+    public void setCvvEncrypted(String cvvEncrypted) {
+        this.cvvEncrypted = cvvEncrypted;
     }
 
     public Instant getCreatedAt() {

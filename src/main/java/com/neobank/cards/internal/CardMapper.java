@@ -17,7 +17,7 @@ class CardMapper {
     /**
      * Convert a CardIssuanceRequest to a CardEntity.
      */
-    CardEntity toEntity(CardIssuanceRequest request, String cardNumberMasked, String cardNumberHash, String cvvHash) {
+    CardEntity toEntity(CardIssuanceRequest request, String cardNumberMasked, String cardNumberEncrypted, String cvvEncrypted) {
         CardEntity entity = new CardEntity();
         entity.setId(UUID.randomUUID());
         entity.setAccountId(request.accountId());
@@ -26,9 +26,9 @@ class CardMapper {
         entity.setSpendingLimit(request.spendingLimit());
         entity.setCardholderName(request.cardholderName());
         entity.setCardNumberMasked(cardNumberMasked);
-        entity.setCardNumberHash(cardNumberHash);
+        entity.setCardNumberEncrypted(cardNumberEncrypted);
         entity.setExpiryDate(YearMonth.now().plusYears(4));
-        entity.setCvvHash(cvvHash);
+        entity.setCvvEncrypted(cvvEncrypted);
         entity.setCreatedAt(Instant.now());
         entity.setMccBlocksJson("[]");
         entity.setMonthlySpent(java.math.BigDecimal.ZERO);
@@ -48,7 +48,7 @@ class CardMapper {
                 entity.getCardholderName(),
                 entity.getCardNumberMasked(),
                 entity.getExpiryDate(),
-                entity.getCvvHash(),
+                entity.getCvvEncrypted(),
                 entity.getCreatedAt(),
                 entity.getActivatedAt()
         );
