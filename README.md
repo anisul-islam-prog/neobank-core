@@ -536,6 +536,16 @@ We have exciting plans for NeoBank Core! Here's what's coming:
   - Early repayment handling
   - Risk-based interest rates
 
+### Phase 1.5: Card Services
+
+- [ ] **Card Module**: Lifecycle and spending management
+  - Virtual & physical card issuance (linked to Accounts)
+  - Status management (Active, Frozen, Blocked, Reported Stolen)
+  - Spending controls (per-transaction and monthly limits)
+  - MCC (Merchant Category Code) filtering (block gambling, international, etc.)
+  - Card PIN management and secure storage
+  - Contactless payment limits
+
 ### Phase 2: Security & Authentication
 
 - [ ] **Auth Module**: JWT-based security using Spring Security 7

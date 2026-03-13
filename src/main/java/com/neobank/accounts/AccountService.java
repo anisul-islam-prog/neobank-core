@@ -48,6 +48,18 @@ public class AccountService implements AccountApi {
                 .orElseThrow(() -> new RuntimeException("Account not found with id: " + id));
     }
 
+    @Override
+    @Transactional
+    public Account creditAccount(UUID accountId, BigDecimal amount) {
+        Account account = getAccountWithLock(accountId);
+        Account updated = new Account(
+                account.id(),
+                account.ownerName(),
+                account.balance().add(amount)
+        );
+        return updateAccount(updated);
+    }
+
     public Account updateAccount(Account account) {
         AccountEntity entity = accountMapper.toEntity(account);
         AccountEntity updated = accountRepository.save(entity);

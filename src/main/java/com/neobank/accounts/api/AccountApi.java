@@ -27,4 +27,14 @@ public interface AccountApi {
      * Use this method when performing balance updates to prevent race conditions.
      */
     Account getAccountWithLock(UUID id);
+
+    /**
+     * Credit an account with the specified amount.
+     * Used for loan disbursements and incoming transfers.
+     *
+     * @param accountId the account to credit
+     * @param amount the amount to credit
+     * @return the updated account
+     */
+    Account creditAccount(UUID accountId, BigDecimal amount);
 }
