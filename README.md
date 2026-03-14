@@ -33,40 +33,179 @@ Before running NeoBank Core, ensure you have the following installed:
 
 ## Quick Start
 
-### 1. Start Backend (Spring Boot)
+Follow these steps to run the complete NeoBank application with all dependencies.
+
+### Step 1: Start Dependencies (Docker Compose)
+
+Start PostgreSQL (and optionally Ollama for local AI):
 
 ```bash
-# Clone and navigate to project
+# Navigate to project root
 cd neobank-core
 
-# Run with Maven
-./mvnw spring-boot:run
+# Start all dependencies (PostgreSQL + Ollama)
+docker-compose --profile local up -d
 
-# Backend will be available at http://localhost:8080
-# API docs at http://localhost:8080/swagger-ui.html
+# Wait for services to be ready (about 30 seconds for first run)
+# Ollama will automatically pull llama3.2 model on first start
+docker-compose ps
 ```
 
-### 2. Start Frontend (Next.js)
+**Verify dependencies are running:**
+```bash
+# Check all containers
+docker-compose ps
+
+# View logs (optional)
+docker-compose logs -f
+```
+
+**Expected output:**
+```
+NAME                    STATUS
+neobank-postgres        healthy
+neobank-ollama          healthy
+```
+
+---
+
+### Step 2: Start Backend (Spring Boot)
+
+Open a **new terminal** and start the backend:
+
+```bash
+# Navigate to project root (if not already there)
+cd neobank-core
+
+# Run backend with Maven
+mvn spring-boot:run
+
+# Wait for startup to complete (about 30 seconds)
+# You should see: "NeoBankCoreApplication started in X seconds"
+```
+
+**Verify backend is running:**
+- API: http://localhost:8080
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- Health: http://localhost:8080/actuator/health
+
+---
+
+### Step 3: Start Frontend (Next.js)
+
+Open **another terminal** and start the frontend:
 
 ```bash
 # Navigate to frontend directory
-cd frontend
+cd neobank-core/frontend
 
-# Install dependencies (first time only)
+# Install dependencies (first time only, takes 1-2 minutes)
 npm install
 
 # Start development server
 npm run dev
 
-# Frontend will be available at http://localhost:3000
+# Wait for compilation (about 10 seconds)
+# You should see: "Ready in Xms"
 ```
 
-### 3. Access the Application
+**Verify frontend is running:**
+- Dashboard: http://localhost:3000
+
+---
+
+### Step 4: Access the Application
 
 1. Open http://localhost:3000 in your browser
-2. Register a new account or login
-3. View your dashboard with accounts and cards
-4. Use the "Reveal" button to see full card details
+
+2. **Register a new account:**
+   - Click "Don't have an account? Sign up"
+   - Enter username, email, and password
+   - Click "Sign Up"
+
+3. **Login:**
+   - Enter your username and password
+   - Click "Sign In"
+
+4. **Explore the dashboard:**
+   - View your account balance
+   - See your cards (masked by default)
+   - Click "Reveal Details" to see full card number and CVV
+
+---
+
+### Stopping the Application
+
+**Stop Frontend:**
+```bash
+# In the frontend terminal, press Ctrl+C
+```
+
+**Stop Backend:**
+```bash
+# In the backend terminal, press Ctrl+C
+```
+
+**Stop Docker Containers:**
+```bash
+# Stop all containers
+docker-compose --profile local down
+
+# Or stop specific services
+docker-compose stop postgres ollama
+```
+
+---
+
+### Troubleshooting
+
+**PostgreSQL connection error:**
+```bash
+# Check if PostgreSQL is running
+docker-compose ps
+
+# View PostgreSQL logs
+docker-compose logs postgres
+
+# Restart PostgreSQL
+docker-compose restart postgres
+```
+
+**Backend fails to start:**
+```bash
+# Clean and rebuild
+mvn clean install -DskipTests
+
+# Run with debug logging
+mvn spring-boot:run -Dspring-boot.run.forked=false
+```
+
+**Frontend fails to start:**
+```bash
+# Clear node modules and reinstall
+cd frontend
+rm -rf node_modules package-lock.json
+npm install
+npm run dev
+```
+
+**Port already in use:**
+```bash
+# Find and kill process on port 8080
+lsof -ti:8080 | xargs kill -9
+
+# Find and kill process on port 3000
+lsof -ti:3000 | xargs kill -9
+```
+
+**Ollama not pulling model:**
+```bash
+# Pull model manually
+docker-compose exec ollama ollama pull llama3.2
+
+# Check Ollama status
+docker-compose exec ollama ollama ps
+```
 
 ---
 
@@ -280,11 +419,11 @@ export OPENAI_API_KEY=sk-...
 
 ```bash
 # Run with Ollama (Local AI)
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+mvn spring-boot:run -Dspring-boot.run.profiles=local
 
 # Run with OpenAI (Cloud AI)
 export OPENAI_API_KEY=your-api-key-here
-./mvnw spring-boot:run -Dspring-boot.run.profiles=openai
+mvn spring-boot:run -Dspring-boot.run.profiles=openai
 ```
 
 ### Method 2: Java JAR Command (Production Deployment)
@@ -305,12 +444,12 @@ java -jar target/neobank-core-0.0.1-SNAPSHOT.jar \
 ```bash
 # Set profile via environment
 export SPRING_PROFILES_ACTIVE=local
-./mvnw spring-boot:run
+mvn spring-boot:run
 
 # Or for OpenAI
 export SPRING_PROFILES_ACTIVE=openai
 export OPENAI_API_KEY=your-api-key-here
-./mvnw spring-boot:run
+mvn spring-boot:run
 ```
 
 ### Method 4: Permanent Configuration Change
@@ -435,7 +574,7 @@ export POSTGRES_URL=jdbc:postgresql://localhost:5432/neobank
 ### Build and Test
 
 ```bash
-./mvnw clean test
+mvn clean test
 ```
 
 ### Fraud Detection Tests: AI Provider Configuration
@@ -452,7 +591,7 @@ docker-compose --profile test up -d ollama
 docker logs neobank-ollama -f
 
 # Run tests with Ollama (default)
-FRAUD_TEST_USE_OPENAI=false ./mvnw clean test
+FRAUD_TEST_USE_OPENAI=false mvn clean test
 ```
 
 #### Alternative: Test with OpenAI API
@@ -460,7 +599,7 @@ FRAUD_TEST_USE_OPENAI=false ./mvnw clean test
 ```bash
 # Run tests with OpenAI (requires valid API key)
 export OPENAI_API_KEY=sk-...
-FRAUD_TEST_USE_OPENAI=true ./mvnw clean test
+FRAUD_TEST_USE_OPENAI=true mvn clean test
 ```
 
 #### Test Configuration Properties
@@ -499,7 +638,7 @@ export OPENAI_API_KEY=sk-...
 curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
 
 # Re-run tests
-FRAUD_TEST_USE_OPENAI=true ./mvnw clean test
+FRAUD_TEST_USE_OPENAI=true mvn clean test
 ```
 
 ### Running the Application
@@ -508,7 +647,7 @@ FRAUD_TEST_USE_OPENAI=true ./mvnw clean test
 
 ```bash
 # Start backend only
-./mvnw spring-boot:run
+mvn spring-boot:run
 
 # Access API at http://localhost:8080
 # Swagger UI at http://localhost:8080/swagger-ui.html
@@ -519,7 +658,7 @@ FRAUD_TEST_USE_OPENAI=true ./mvnw clean test
 **Terminal 1 - Backend:**
 ```bash
 cd neobank-core
-./mvnw spring-boot:run
+mvn spring-boot:run
 ```
 
 **Terminal 2 - Frontend:**
@@ -582,7 +721,7 @@ OpenAPI documentation is auto-generated via springdoc-openapi:
 C4/PlantUML diagrams are generated via Spring Modulith's `Documenter`:
 
 ```bash
-./mvnw test -Dtest=ArchitectureDocumentationTest
+mvn test -Dtest=ArchitectureDocumentationTest
 ```
 
 Generated docs are output to `target/modulith-docs/`.
@@ -657,7 +796,7 @@ Access metrics at: `http://localhost:8080/actuator/prometheus`
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests: `./mvnw clean test`
+4. Run tests: `mvn clean test`
 5. Submit a pull request
 
 For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -670,7 +809,7 @@ We have exciting plans for NeoBank Core! Here's what's coming:
 
 ### Phase 1: Core Banking Features
 
-- [ ] **Loans Module**: Implementing interest calculation with Scoped Value API (Java 25)
+- [x] **Loans Module**: Implementing interest calculation with Scoped Value API (Java 25)
   - Loan origination workflow
   - Amortization schedules
   - Early repayment handling
@@ -678,7 +817,7 @@ We have exciting plans for NeoBank Core! Here's what's coming:
 
 ### Phase 1.5: Card Services
 
-- [ ] **Card Module**: Lifecycle and spending management
+- [x] **Card Module**: Lifecycle and spending management
   - Virtual & physical card issuance (linked to Accounts)
   - Status management (Active, Frozen, Blocked, Reported Stolen)
   - Spending controls (per-transaction and monthly limits)
@@ -688,7 +827,7 @@ We have exciting plans for NeoBank Core! Here's what's coming:
 
 ### Phase 2: Security & Authentication
 
-- [ ] **Auth Module**: JWT-based security using Spring Security 7
+- [x] **Auth Module**: JWT-based security using Spring Security 7
   - User registration and login
   - Role-based access control (RBAC)
   - OAuth2 provider integration
@@ -696,7 +835,7 @@ We have exciting plans for NeoBank Core! Here's what's coming:
 
 ### Phase 3: User Experience
 
-- [ ] **Frontend**: A lightweight React/Next.js dashboard
+- [x] **Frontend**: A lightweight React/Next.js dashboard
   - Account overview and analytics
   - Transfer history with filters
   - Real-time notifications
