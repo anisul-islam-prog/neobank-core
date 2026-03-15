@@ -9,11 +9,13 @@ import java.util.UUID;
  *
  * @param userId the new user's identifier
  * @param username the username
+ * @param branchId the user's assigned branch identifier
  * @param occurredAt when the event occurred
  */
 public record UserCreatedEvent(
         UUID userId,
         String username,
+        UUID branchId,
         String occurredAt
 ) {
     public UserCreatedEvent {
@@ -25,7 +27,7 @@ public record UserCreatedEvent(
         }
     }
 
-    public static UserCreatedEvent of(UUID userId, String username) {
-        return new UserCreatedEvent(userId, username, Instant.now().toString());
+    public static UserCreatedEvent of(UUID userId, String username, UUID branchId) {
+        return new UserCreatedEvent(userId, username, branchId, Instant.now().toString());
     }
 }

@@ -3,6 +3,7 @@ package com.neobank.auth.internal;
 import com.neobank.auth.*;
 import com.neobank.auth.api.AuthApi;
 import com.neobank.auth.api.UserCreatedEvent;
+import com.neobank.branches.internal.BranchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -27,13 +28,16 @@ class AuthService implements AuthApi {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final ApplicationEventPublisher eventPublisher;
+    private final BranchService branchService;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                       JwtService jwtService, ApplicationEventPublisher eventPublisher) {
+                       JwtService jwtService, ApplicationEventPublisher eventPublisher,
+                       BranchService branchService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.eventPublisher = eventPublisher;
+        this.branchService = branchService;
     }
 
     @Override
@@ -43,21 +47,29 @@ class AuthService implements AuthApi {
             return RegistrationResult.failure("Username already exists: " + request.username());
         }
 
+        // Check if email already exists
+        if (userRepository.existsByEmail(request.email())) {
+            return RegistrationResult.failure("Email already registered: " + request.email());
+        }
+
         // Create new user entity
         UUID userId = UUID.randomUUID();
         UserEntity userEntity = new UserEntity();
         userEntity.setId(userId);
         userEntity.setUsername(request.username());
+        userEntity.setEmail(request.email());
         userEntity.setPasswordHash(passwordEncoder.encode(request.password()));
-        userEntity.setRole(UserRole.USER);
-        userEntity.setRoles(List.of(UserRole.USER));
+        userEntity.setRole(UserRole.CUSTOMER_RETAIL);
+        userEntity.setRoles(List.of(UserRole.CUSTOMER_RETAIL));
+        // Auto-assign to Head Office branch
+        userEntity.setBranchId(branchService.getHeadOffice().getId());
         userEntity.setCreatedAt(Instant.now());
 
         // Save user
         userRepository.save(userEntity);
 
         // Publish UserCreatedEvent for cross-module integration
-        eventPublisher.publishEvent(UserCreatedEvent.of(userId, request.username()));
+        eventPublisher.publishEvent(UserCreatedEvent.of(userId, request.username(), userEntity.getBranchId()));
 
         log.info("User registered: {} ({})", request.username(), userId);
 

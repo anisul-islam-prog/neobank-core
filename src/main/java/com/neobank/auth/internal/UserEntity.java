@@ -14,14 +14,20 @@ import java.util.UUID;
  * Stores credentials with BCrypt hashed password.
  */
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = {
+        @UniqueConstraint(columnNames = "username", name = "uk_users_username"),
+        @UniqueConstraint(columnNames = "email", name = "uk_users_email")
+})
 class UserEntity {
 
     @Id
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, length = 100)
     private String username;
+
+    @Column(nullable = false, length = 255)
+    private String email;
 
     @Column(nullable = false)
     private String passwordHash;
@@ -29,6 +35,9 @@ class UserEntity {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private UserRole role;
+
+    @Column(name = "branch_id")
+    private UUID branchId;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -70,6 +79,14 @@ class UserEntity {
         this.username = username;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
     public String getPasswordHash() {
         return passwordHash;
     }
@@ -84,6 +101,14 @@ class UserEntity {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    public UUID getBranchId() {
+        return branchId;
+    }
+
+    public void setBranchId(UUID branchId) {
+        this.branchId = branchId;
     }
 
     public Instant getCreatedAt() {

@@ -33,6 +33,10 @@ public class AuthController {
         if (result.success()) {
             return ResponseEntity.ok(result);
         }
+        // Return 409 Conflict for duplicate username/email
+        if (result.message().contains("already exists") || result.message().contains("already registered")) {
+            return ResponseEntity.status(409).body(result);
+        }
         return ResponseEntity.badRequest().body(result);
     }
 

@@ -30,10 +30,10 @@ class AccountInitializer {
         try {
             // Create default savings account with $0 initial balance
             String accountOwner = "User: " + event.username();
-            accountService.createNewAccount(accountOwner, BigDecimal.ZERO);
+            accountService.createNewAccountWithBranch(accountOwner, BigDecimal.ZERO, event.branchId());
 
-            log.info("Default savings account created for user: {} ({})",
-                    event.username(), event.userId());
+            log.info("Default savings account created for user: {} ({}) at branch: {}",
+                    event.username(), event.userId(), event.branchId());
         } catch (Exception e) {
             log.error("Failed to create default account for user: {}", event.username(), e);
         }

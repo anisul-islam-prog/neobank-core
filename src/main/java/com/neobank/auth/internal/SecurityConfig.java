@@ -32,7 +32,7 @@ class SecurityConfig {
     }
 
     /**
-     * Configure security filter chain with JWT authentication.
+     * Configure security filter chain with JWT authentication and role-based authorization.
      */
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -54,6 +54,12 @@ class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/v3/api-docs"
                         ).permitAll()
+                        // Audit endpoints - AUDITOR only
+                        .requestMatchers("/api/audit/**").hasRole("AUDITOR")
+                        // Loan approval - MANAGER or SYSTEM_ADMIN only
+                        .requestMatchers("/api/loans/**/approve").hasAnyRole("MANAGER", "SYSTEM_ADMIN")
+                        // Account search (non-owned) - TELLER or above
+                        .requestMatchers("/api/accounts/search/**").hasAnyRole("TELLER", "RELATIONSHIP_OFFICER", "MANAGER", "AUDITOR", "SYSTEM_ADMIN")
                         // All other /api/** endpoints require authentication
                         .requestMatchers("/api/loans/**", "/api/cards/**").authenticated()
                         .requestMatchers("/api/transfers/**").authenticated()

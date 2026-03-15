@@ -22,6 +22,9 @@ class AccountEntity {
     @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal balance;
 
+    @Column(name = "branch_id")
+    private UUID branchId;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "transaction_history", columnDefinition = "jsonb")
     private List<String> transactionHistory = new ArrayList<>();
@@ -51,6 +54,14 @@ class AccountEntity {
 
     public void setBalance(BigDecimal balance) {
         this.balance = balance;
+    }
+
+    public UUID getBranchId() {
+        return branchId;
+    }
+
+    public void setBranchId(UUID branchId) {
+        this.branchId = branchId;
     }
 
     public List<String> getTransactionHistory() {

@@ -21,8 +21,13 @@ public class AccountService implements AccountApi {
     }
 
     public Account createNewAccount(String owner, BigDecimal initialBalance) {
+        return createNewAccountWithBranch(owner, initialBalance, null);
+    }
+
+    public Account createNewAccountWithBranch(String owner, BigDecimal initialBalance, UUID branchId) {
         Account account = new Account(UUID.randomUUID(), owner, initialBalance);
         AccountEntity entity = accountMapper.toEntity(account);
+        entity.setBranchId(branchId);
         AccountEntity saved = accountRepository.save(entity);
         return accountMapper.toDomain(saved);
     }

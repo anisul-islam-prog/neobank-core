@@ -37,4 +37,14 @@ public interface AccountApi {
      * @return the updated account
      */
     Account creditAccount(UUID accountId, BigDecimal amount);
+
+    /**
+     * Create a new account linked to a specific branch.
+     *
+     * @param owner the account owner name
+     * @param initialBalance the initial balance
+     * @param branchId the branch identifier (optional)
+     * @return the created account
+     */
+    Account createNewAccountWithBranch(String owner, BigDecimal initialBalance, UUID branchId);
 }
