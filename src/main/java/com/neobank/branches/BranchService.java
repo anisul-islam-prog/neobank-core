@@ -1,4 +1,4 @@
-package com.neobank.branches.internal;
+package com.neobank.branches;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

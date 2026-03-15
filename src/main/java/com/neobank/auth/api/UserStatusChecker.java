@@ -1,6 +1,8 @@
-package com.neobank.auth.internal;
+package com.neobank.auth.api;
 
 import com.neobank.auth.UserStatus;
+import com.neobank.auth.internal.UserEntity;
+import com.neobank.auth.internal.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,6 +12,9 @@ import java.util.UUID;
 /**
  * Service for checking user status from other modules.
  * Used by loans, cards, and other modules to enforce access control.
+ * 
+ * This is part of the public auth API to allow cross-module usage
+ * without violating Spring Modulith boundaries.
  */
 @Service
 @Transactional(readOnly = true)

@@ -148,26 +148,6 @@ public class ApprovalApi {
     }
 
     /**
-     * Get current user info including role and status.
-     */
-    @GetMapping("/me")
-    @Operation(summary = "Get current user info", description = "Returns the authenticated user's details including role and status")
-    public ResponseEntity<Map<String, Object>> getCurrentUser(
-            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
-        
-        if (userDetails == null) {
-            return ResponseEntity.status(401).body(Map.of("authenticated", false));
-        }
-        
-        // In production, fetch full user details from database
-        return ResponseEntity.ok(Map.of(
-                "authenticated", true,
-                "username", userDetails.getUsername(),
-                "roles", userDetails.getAuthorities()
-        ));
-    }
-
-    /**
      * Extract user role from UserDetails.
      * In production, this parses the role from JWT claims.
      */

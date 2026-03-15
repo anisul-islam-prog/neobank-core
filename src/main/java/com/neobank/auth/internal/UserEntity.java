@@ -19,7 +19,7 @@ import java.util.UUID;
         @UniqueConstraint(columnNames = "username", name = "uk_users_username"),
         @UniqueConstraint(columnNames = "email", name = "uk_users_email")
 })
-class UserEntity {
+public class UserEntity {
 
     @Id
     private UUID id;

@@ -10,7 +10,7 @@ import java.util.UUID;
  * Repository for user persistence.
  */
 @Repository
-interface UserRepository extends JpaRepository<UserEntity, UUID> {
+public interface UserRepository extends JpaRepository<UserEntity, UUID> {
 
     /**
      * Find user by username.

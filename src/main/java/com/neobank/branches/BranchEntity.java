@@ -1,4 +1,4 @@
-package com.neobank.branches.internal;
+package com.neobank.branches;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;

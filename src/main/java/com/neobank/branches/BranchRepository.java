@@ -1,4 +1,4 @@
-package com.neobank.branches.internal;
+package com.neobank.branches;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -10,7 +10,7 @@ import java.util.UUID;
  * Repository for branch persistence.
  */
 @Repository
-interface BranchRepository extends JpaRepository<BranchEntity, UUID> {
+public interface BranchRepository extends JpaRepository<BranchEntity, UUID> {
 
     /**
      * Find branch by code.

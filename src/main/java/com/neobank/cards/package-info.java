@@ -5,6 +5,6 @@
  * Access Control: Only ACTIVE users can issue or manage cards.
  */
 @org.springframework.modulith.ApplicationModule(
-        allowedDependencies = {"accounts :: account-api", "auth"}
+        allowedDependencies = {"accounts :: account-api", "auth :: auth-api"}
 )
 package com.neobank.cards;

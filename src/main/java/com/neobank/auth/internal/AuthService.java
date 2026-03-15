@@ -3,7 +3,7 @@ package com.neobank.auth.internal;
 import com.neobank.auth.*;
 import com.neobank.auth.api.AuthApi;
 import com.neobank.auth.api.UserCreatedEvent;
-import com.neobank.branches.internal.BranchService;
+import com.neobank.branches.BranchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;

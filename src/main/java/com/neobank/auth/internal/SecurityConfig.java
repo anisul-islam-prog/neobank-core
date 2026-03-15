@@ -1,5 +1,6 @@
 package com.neobank.auth.internal;
 
+import com.neobank.auth.internal.docs.DocAccessTokenFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -9,6 +10,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -17,8 +20,8 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Security configuration with JWT authentication.
- * Protects /api/** endpoints while allowing public access to auth and docs.
+ * Security configuration with JWT authentication and documentation access control.
+ * Protects /api/** endpoints while restricting Swagger UI to token holders.
  * Disabled during tests.
  */
 @Configuration
@@ -26,13 +29,17 @@ import java.util.List;
 class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final DocAccessTokenFilter docAccessTokenFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          DocAccessTokenFilter docAccessTokenFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.docAccessTokenFilter = docAccessTokenFilter;
     }
 
     /**
      * Configure security filter chain with JWT authentication and role-based authorization.
+     * Documentation endpoints require valid access token or authenticated admin user.
      */
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -48,13 +55,15 @@ class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/accounts/**"
                         ).permitAll()
-                        // Swagger/OpenAPI documentation
+                        // Documentation endpoints - require DOC_ACCESS role or authenticated admin
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
-                                "/v3/api-docs"
-                        ).permitAll()
+                                "/v3/api-docs",
+                                "/swagger-resources/**",
+                                "/webjars/swagger-ui/**"
+                        ).hasAnyRole("DOC_ACCESS", "SYSTEM_ADMIN", "MANAGER")
                         // Staff onboarding - MANAGER, RELATIONSHIP_OFFICER, or SYSTEM_ADMIN
                         .requestMatchers("/api/auth/onboard").hasAnyRole("MANAGER", "RELATIONSHIP_OFFICER", "SYSTEM_ADMIN")
                         // User approval - MANAGER or RELATIONSHIP_OFFICER
@@ -63,6 +72,8 @@ class SecurityConfig {
                         .requestMatchers("/api/auth/staff/{id}/approve").hasRole("SYSTEM_ADMIN")
                         // User status update - MANAGER or SYSTEM_ADMIN
                         .requestMatchers("/api/auth/users/{id}/status").hasAnyRole("MANAGER", "SYSTEM_ADMIN")
+                        // Documentation token management - SYSTEM_ADMIN only
+                        .requestMatchers("/api/auth/admin/docs/**").hasRole("SYSTEM_ADMIN")
                         // Audit endpoints - AUDITOR only
                         .requestMatchers("/api/audit/**").hasRole("AUDITOR")
                         // Loan approval - MANAGER or SYSTEM_ADMIN only
@@ -75,9 +86,18 @@ class SecurityConfig {
                         // All other requests
                         .anyRequest().permitAll()
                 )
+                .addFilterBefore(docAccessTokenFilter, JwtAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * Security context repository for session storage.
+     */
+    @Bean
+    SecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
     }
 
     /**

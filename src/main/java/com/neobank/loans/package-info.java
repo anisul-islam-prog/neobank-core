@@ -7,6 +7,6 @@
  * - {@link com.neobank.loans.CreditScoreApi} - Credit score checking
  */
 @org.springframework.modulith.ApplicationModule(
-        allowedDependencies = {"accounts :: account-api", "auth"}
+        allowedDependencies = {"accounts :: account-api", "auth :: auth-api"}
 )
 package com.neobank.loans;

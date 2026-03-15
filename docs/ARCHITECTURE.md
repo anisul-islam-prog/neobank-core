@@ -442,6 +442,50 @@ Access metrics at: `http://localhost:8080/actuator/prometheus`
 
 ---
 
+## Documentation Access Control
+
+API documentation (Swagger UI) is restricted to prevent unauthorized access to API details.
+
+### Access Control Mechanism
+
+| Component | Description |
+|-----------|-------------|
+| **DocTokenEntity** | JPA entity storing access tokens with expiration and usage tracking |
+| **DocTokenService** | Service for generating, validating, and revoking tokens |
+| **DocAccessTokenFilter** | Servlet filter validating tokens from query param or header |
+| **SysAdminDocController** | SYSTEM_ADMIN endpoint for token management |
+
+### Token Properties
+
+| Property | Description |
+|----------|-------------|
+| **Token Format** | `doc_` prefix + 32 random characters |
+| **Validity** | Configurable (default 24 hours, max 720 hours) |
+| **Usage Tracking** | Records each use with timestamp |
+| **Revocable** | SYSTEM_ADMIN can revoke individual or all tokens |
+
+### Access Methods
+
+Tokens can be provided via:
+1. **Query Parameter**: `?access_token=doc_abc123...`
+2. **HTTP Header**: `X-DOC-ACCESS-TOKEN: doc_abc123...`
+
+### Security Roles
+
+| Endpoint | Required Role |
+|----------|---------------|
+| `/swagger-ui/**`, `/v3/api-docs/**` | `DOC_ACCESS`, `SYSTEM_ADMIN`, `MANAGER` |
+| `/api/auth/admin/docs/**` | `SYSTEM_ADMIN` only |
+
+### Frontend Management
+
+SYSTEM_ADMIN can manage tokens via the admin dashboard:
+- **URL**: `/admin/docs`
+- **Features**: Generate tokens, view active tokens, revoke tokens
+- **Access**: Restricted to SYSTEM_ADMIN role
+
+---
+
 ## Roadmap
 
 We have exciting plans for NeoBank Core! Here's what's coming:

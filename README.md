@@ -50,7 +50,21 @@ docker-compose logs -f
 **2. Open your browser:**
 
 - **Dashboard:** http://localhost:3000
-- **API Docs:** http://localhost:8080/swagger-ui.html
+- **API Docs:** http://localhost:8080/swagger-ui.html (requires access token, see below)
+
+**3. Access API Documentation:**
+
+API documentation is restricted for security. SYSTEM_ADMIN must generate an access token:
+
+```bash
+# Generate documentation access token (SYSTEM_ADMIN only)
+curl -X POST http://localhost:8080/api/auth/admin/docs/tokens \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer SYSTEM_ADMIN_TOKEN" \
+  -d '{"description": "Dev Access", "durationHours": 24}'
+```
+
+Use the returned `accessUrl` to access Swagger UI, or append `?access_token=TOKEN` to the URL.
 
 **3. Create your first account:**
 

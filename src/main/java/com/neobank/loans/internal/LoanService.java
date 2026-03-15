@@ -1,7 +1,7 @@
 package com.neobank.loans.internal;
 
 import com.neobank.accounts.api.AccountApi;
-import com.neobank.auth.internal.UserStatusChecker;
+import com.neobank.auth.api.UserStatusChecker;
 import com.neobank.loans.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

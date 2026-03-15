@@ -1,6 +1,6 @@
 package com.neobank.cards.internal;
 
-import com.neobank.auth.internal.UserStatusChecker;
+import com.neobank.auth.api.UserStatusChecker;
 import com.neobank.cards.*;
 import com.neobank.cards.api.CardApi;
 import org.slf4j.Logger;

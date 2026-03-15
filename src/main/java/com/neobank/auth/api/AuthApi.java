@@ -7,7 +7,12 @@ import java.util.UUID;
 /**
  * Public API interface for the auth module.
  * Defines the contract for user authentication, registration, and approval workflow.
+ * 
+ * This is a named interface for Spring Modulith - other modules can depend on
+ * "auth :: auth-api" to access authentication functionality without coupling
+ * to internal implementation details.
  */
+@org.springframework.modulith.NamedInterface("auth-api")
 public interface AuthApi {
 
     /**
