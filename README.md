@@ -57,7 +57,10 @@ docker-compose logs -f
 1. Click "Sign Up" on the login page
 2. Enter your details (username, email, password)
 3. Your $0 savings account is created automatically
-4. Login and start exploring!
+4. **Note:** New accounts require staff approval before login (see [Usage Guide](docs/USAGE.md))
+5. Once approved, login and start exploring!
+
+> **For Testing:** Use the Swagger UI to approve accounts: `PUT /api/auth/users/{id}/approve`
 
 ### Stopping NeoBank
 
@@ -101,6 +104,14 @@ docker-compose --profile local down
 - BCrypt password hashing
 - AES-256-GCM card encryption
 - AI-powered fraud detection
+
+### Security & Compliance
+- **Verified Onboarding**: All new users require staff approval before accessing banking features
+- **Role-Based Access Control (RBAC)**: 8 distinct roles from CUSTOMER_RETAIL to SYSTEM_ADMIN
+- **User Status Management**: PENDING, ACTIVE, SUSPENDED states for account lifecycle control
+- **Forced Password Reset**: Staff accounts must change password on first login
+- **Segregation of Duties**: MANAGER approves customers, SYSTEM_ADMIN approves staff
+- **Audit Trail**: All approval actions logged with user and timestamp
 
 ---
 

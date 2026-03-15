@@ -28,4 +28,8 @@ public record LoanApplicationResult(
     public static LoanApplicationResult approved(UUID loanId, BigDecimal monthlyPayment) {
         return new LoanApplicationResult(loanId, ApplicationStatus.APPROVED, "Loan approved", monthlyPayment);
     }
+
+    public static LoanApplicationResult failure(String reason) {
+        return new LoanApplicationResult(null, ApplicationStatus.PENDING, reason, null);
+    }
 }

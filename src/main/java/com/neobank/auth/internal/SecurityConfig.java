@@ -42,9 +42,10 @@ class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints - no authentication required
+                        // Public endpoints - no authentication required (register, login)
                         .requestMatchers(
-                                "/api/auth/**",
+                                "/api/auth/register",
+                                "/api/auth/login",
                                 "/api/accounts/**"
                         ).permitAll()
                         // Swagger/OpenAPI documentation
@@ -54,6 +55,14 @@ class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/v3/api-docs"
                         ).permitAll()
+                        // Staff onboarding - MANAGER, RELATIONSHIP_OFFICER, or SYSTEM_ADMIN
+                        .requestMatchers("/api/auth/onboard").hasAnyRole("MANAGER", "RELATIONSHIP_OFFICER", "SYSTEM_ADMIN")
+                        // User approval - MANAGER or RELATIONSHIP_OFFICER
+                        .requestMatchers("/api/auth/users/{id}/approve").hasAnyRole("MANAGER", "RELATIONSHIP_OFFICER", "SYSTEM_ADMIN")
+                        // Staff approval - SYSTEM_ADMIN only
+                        .requestMatchers("/api/auth/staff/{id}/approve").hasRole("SYSTEM_ADMIN")
+                        // User status update - MANAGER or SYSTEM_ADMIN
+                        .requestMatchers("/api/auth/users/{id}/status").hasAnyRole("MANAGER", "SYSTEM_ADMIN")
                         // Audit endpoints - AUDITOR only
                         .requestMatchers("/api/audit/**").hasRole("AUDITOR")
                         // Loan approval - MANAGER or SYSTEM_ADMIN only

@@ -5,6 +5,9 @@ package com.neobank.auth;
  * 
  * Roles are organized in a hierarchy for authorization purposes:
  * 
+ * Guest Role:
+ * - ROLE_GUEST: Unverified users awaiting approval
+ * 
  * Customer Roles:
  * - CUSTOMER_RETAIL: Individual banking customers
  * - CUSTOMER_BUSINESS: Business/corporate banking customers
@@ -19,6 +22,12 @@ package com.neobank.auth;
  * - SYSTEM_ADMIN: Full system administration
  */
 public enum UserRole {
+    /**
+     * Guest user awaiting approval.
+     * Access: None - must be approved before accessing banking features.
+     */
+    ROLE_GUEST,
+
     /**
      * Individual retail banking customer.
      * Access: Personal accounts, transfers, loans, cards.

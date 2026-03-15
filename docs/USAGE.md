@@ -7,10 +7,12 @@ Your complete guide to using NeoBank's banking features.
 ## Table of Contents
 
 1. [Onboarding](#onboarding) - Register and get your account
-2. [User Roles & Access Control](#user-roles--access-control) - RBAC explained
-3. [Credit Scoring](#credit-scoring) - Understand your credit score
-4. [Loan Lifecycle](#loan-lifecycle) - Apply, approve, and receive loans
-5. [Security](#security) - JWT authentication and API access
+2. [User Status & Approval Workflow](#user-status--approval-workflow) - Account lifecycle
+3. [Staff-Led Onboarding](#staff-led-onboarding) - Creating staff accounts
+4. [User Roles & Access Control](#user-roles--access-control) - RBAC explained
+5. [Credit Scoring](#credit-scoring) - Understand your credit score
+6. [Loan Lifecycle](#loan-lifecycle) - Apply, approve, and receive loans
+7. [Security](#security) - JWT authentication and API access
 
 ---
 
@@ -19,6 +21,9 @@ Your complete guide to using NeoBank's banking features.
 ### Step 1: Register Your Account
 
 New users can register in seconds. A **$0 savings account** is created automatically upon registration.
+
+**Important:** Public registration creates an account with `PENDING` status and `ROLE_GUEST`. 
+Users must be approved by a MANAGER or RELATIONSHIP_OFFICER before they can login and access banking features.
 
 **Via Dashboard:**
 1. Open http://localhost:3000
@@ -50,7 +55,8 @@ curl -X POST http://localhost:8080/api/auth/register \
 }
 ```
 
-> **Note:** New users are automatically assigned to the **Head Office** branch and given the `CUSTOMER_RETAIL` role by default.
+> **Note:** New users are assigned to the **Head Office** branch with `PENDING` status and `ROLE_GUEST`. 
+> Approval is required before accessing banking features.
 
 ### Step 2: Login
 
@@ -100,6 +106,124 @@ curl http://localhost:8080/api/accounts \
 
 ---
 
+## User Status & Approval Workflow
+
+NeoBank implements a **verified onboarding process** to ensure security and compliance.
+
+### User Status Values
+
+| Status | Description | Can Login? | Can Apply for Loans/Cards? |
+|--------|-------------|------------|---------------------------|
+| `PENDING` | Awaiting staff approval | ❌ No | ❌ No |
+| `ACTIVE` | Fully verified and active | ✅ Yes | ✅ Yes |
+| `SUSPENDED` | Temporarily disabled (fraud/compliance review) | ❌ No | ❌ No |
+
+### Approval Workflow
+
+**For Public Registrations (CUSTOMER_RETAIL):**
+
+1. User registers via `/api/auth/register` → Status: `PENDING`, Role: `ROLE_GUEST`
+2. MANAGER or RELATIONSHIP_OFFICER approves via `PUT /api/auth/users/{id}/approve`
+3. User status changes to `ACTIVE`, role changes to `CUSTOMER_RETAIL`
+4. User can now login and access banking features
+
+```bash
+# Approve a pending user (MANAGER or RELATIONSHIP_OFFICER only)
+curl -X PUT http://localhost:8080/api/auth/users/{user-id}/approve \
+  -H "Authorization: Bearer MANAGER_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "userId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "success": true,
+  "message": "User approved and activated"
+}
+```
+
+### Login Enforcement
+
+When a user attempts to login:
+
+| Status | Response Code | Message |
+|--------|---------------|---------|
+| `PENDING` | 403 Forbidden | "Account pending approval. Please contact support." |
+| `SUSPENDED` | 403 Forbidden | "Account suspended. Please contact support." |
+| `ACTIVE` (mustChangePassword=true) | 200 OK + flag | Response includes `mustChangePassword: true` |
+| `ACTIVE` (normal) | 200 OK | Standard login response |
+
+**Force Password Reset Flow:**
+
+When `mustChangePassword` is `true` in the login response, the frontend must:
+1. Redirect user to password reset page
+2. User sets new password
+3. Call `POST /api/auth/reset-password` to clear the flag
+
+---
+
+## Staff-Led Onboarding
+
+For creating staff accounts (TELLER, MANAGER, etc.) or pre-approved customer accounts.
+
+### Staff Onboarding Endpoint
+
+**Access Control:**
+- `SYSTEM_ADMIN`: Can create any role
+- `MANAGER`: Can create TELLER, CUSTOMER_RETAIL, CUSTOMER_BUSINESS
+- `RELATIONSHIP_OFFICER`: Can create TELLER, CUSTOMER_RETAIL, CUSTOMER_BUSINESS
+
+```bash
+# Onboard a new TELLER (MANAGER or RO can do this)
+curl -X POST http://localhost:8080/api/auth/onboard \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer MANAGER_TOKEN" \
+  -d '{
+    "username": "teller_jane",
+    "email": "jane@neobank.com",
+    "password": "TempPass123!",
+    "role": "TELLER",
+    "branchId": "branch-uuid-optional"
+  }'
+```
+
+**Response:**
+```json
+{
+  "userId": "staff-uuid-123",
+  "success": true,
+  "message": "User registered successfully"
+}
+```
+
+> **Note:** Staff users are created with `mustChangePassword = true` to force password reset on first login.
+
+### Staff Approval Workflow
+
+For staff accounts with sensitive roles (MANAGER, AUDITOR), SYSTEM_ADMIN approval is required:
+
+```bash
+# Approve staff user (SYSTEM_ADMIN only)
+curl -X PUT http://localhost:8080/api/auth/staff/{user-id}/approve \
+  -H "Authorization: Bearer SYSTEM_ADMIN_TOKEN"
+```
+
+### User Status Management
+
+MANAGER and SYSTEM_ADMIN can update user status:
+
+```bash
+# Suspend a user (for fraud/compliance review)
+curl -X PATCH "http://localhost:8080/api/auth/users/{user-id}/status?status=SUSPENDED" \
+  -H "Authorization: Bearer MANAGER_TOKEN"
+
+# Reactivate a user
+curl -X PATCH "http://localhost:8080/api/auth/users/{user-id}/status?status=ACTIVE" \
+  -H "Authorization: Bearer MANAGER_TOKEN"
+```
+
+---
+
 ## User Roles & Access Control
 
 NeoBank uses **Role-Based Access Control (RBAC)** to manage permissions across different user types.
@@ -108,6 +232,7 @@ NeoBank uses **Role-Based Access Control (RBAC)** to manage permissions across d
 
 | Role | Description | Access Level |
 |------|-------------|--------------|
+| `ROLE_GUEST` | Unverified users awaiting approval | None - must be approved |
 | `CUSTOMER_RETAIL` | Individual banking customers | Personal accounts, transfers, loans, cards |
 | `CUSTOMER_BUSINESS` | Business/corporate customers | Business accounts, commercial loans, multi-user management |
 | `TELLER` | Front-line banking staff | Customer lookup, cash transactions, basic operations |
@@ -119,36 +244,28 @@ NeoBank uses **Role-Based Access Control (RBAC)** to manage permissions across d
 ### Role Assignment
 
 **Default Assignment:**
-- New users registering via the public API are assigned `CUSTOMER_RETAIL` by default
+- New users registering via the public API are assigned `ROLE_GUEST` with `PENDING` status
+- Users must be approved by MANAGER or RELATIONSHIP_OFFICER to become `CUSTOMER_RETAIL`
 - All users are auto-assigned to the **Head Office** branch
 
-**Assigning Roles During Registration:**
+**Staff Onboarding:**
 
-For internal user creation (staff accounts), include the role in the registration request:
+For internal user creation (staff accounts), use the `/api/auth/onboard` endpoint:
 
 ```bash
-# Register a TELLER account
-curl -X POST http://localhost:8080/api/auth/register \
+# Onboard a TELLER account (MANAGER or RO can do this)
+curl -X POST http://localhost:8080/api/auth/onboard \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Authorization: Bearer MANAGER_TOKEN" \
   -d '{
     "username": "teller_jane",
     "email": "jane@neobank.com",
-    "password": "securePassword123",
+    "password": "TempPass123!",
     "role": "TELLER"
   }'
-
-# Register a MANAGER account
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer ADMIN_TOKEN" \
-  -d '{
-    "username": "manager_bob",
-    "email": "bob@neobank.com",
-    "password": "securePassword123",
-    "role": "MANAGER"
-  }'
 ```
+
+> **Note:** The old registration method with role parameter is deprecated. Use `/api/auth/onboard` for staff accounts.
 
 ### Protected Endpoints by Role
 

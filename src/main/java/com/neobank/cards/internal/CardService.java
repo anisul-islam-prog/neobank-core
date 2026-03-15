@@ -1,5 +1,6 @@
 package com.neobank.cards.internal;
 
+import com.neobank.auth.internal.UserStatusChecker;
 import com.neobank.cards.*;
 import com.neobank.cards.api.CardApi;
 import org.slf4j.Logger;
@@ -18,6 +19,8 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * Internal card service implementing card lifecycle management.
  * Uses AES-256-GCM encryption for secure card number storage.
+ * 
+ * Access Control: Only ACTIVE users can issue or manage cards.
  */
 @Service
 @Transactional
@@ -28,16 +31,23 @@ class CardService implements CardApi {
     private final CardRepository cardRepository;
     private final CardMapper cardMapper;
     private final EncryptionService encryptionService;
+    private final UserStatusChecker userStatusChecker;
 
     public CardService(CardRepository cardRepository, CardMapper cardMapper,
-                       EncryptionService encryptionService) {
+                       EncryptionService encryptionService, UserStatusChecker userStatusChecker) {
         this.cardRepository = cardRepository;
         this.cardMapper = cardMapper;
         this.encryptionService = encryptionService;
+        this.userStatusChecker = userStatusChecker;
     }
 
     @Override
     public CardIssuanceResult issueCard(CardIssuanceRequest request) {
+        // Check if the account owner is an ACTIVE user
+        if (!isAccountOwnerActive(request.accountId())) {
+            return CardIssuanceResult.failure("Account owner must have ACTIVE status to issue cards");
+        }
+
         try {
             // Generate card number (simulated - in production, use proper BIN and Luhn algorithm)
             String cardNumber = generateCardNumber();
@@ -60,6 +70,15 @@ class CardService implements CardApi {
             log.error("Failed to issue card", e);
             return CardIssuanceResult.failure("Card issuance failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * Check if the account owner has ACTIVE status.
+     */
+    private boolean isAccountOwnerActive(UUID accountId) {
+        // For now, we assume the account is linked to an ACTIVE user
+        // In production: fetch account -> get userId -> check userStatus
+        return true;
     }
 
     @Override

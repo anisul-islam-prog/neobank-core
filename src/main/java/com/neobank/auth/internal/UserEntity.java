@@ -1,6 +1,7 @@
 package com.neobank.auth.internal;
 
 import com.neobank.auth.UserRole;
+import com.neobank.auth.UserStatus;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -38,6 +39,13 @@ class UserEntity {
 
     @Column(name = "branch_id")
     private UUID branchId;
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private UserStatus status = UserStatus.PENDING;
+
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword = false;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -149,5 +157,21 @@ class UserEntity {
 
     public void setRoles(List<UserRole> roles) {
         this.roles = roles;
+    }
+
+    public UserStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(UserStatus status) {
+        this.status = status;
+    }
+
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
     }
 }
