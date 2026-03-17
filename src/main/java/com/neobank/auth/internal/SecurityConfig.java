@@ -29,12 +29,9 @@ import java.util.List;
 class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final DocAccessTokenFilter docAccessTokenFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          DocAccessTokenFilter docAccessTokenFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-        this.docAccessTokenFilter = docAccessTokenFilter;
     }
 
     /**
@@ -42,7 +39,7 @@ class SecurityConfig {
      * Documentation endpoints require valid access token or authenticated admin user.
      */
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, DocAccessTokenFilter docAccessTokenFilter) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -67,17 +64,17 @@ class SecurityConfig {
                         // Staff onboarding - MANAGER, RELATIONSHIP_OFFICER, or SYSTEM_ADMIN
                         .requestMatchers("/api/auth/onboard").hasAnyRole("MANAGER", "RELATIONSHIP_OFFICER", "SYSTEM_ADMIN")
                         // User approval - MANAGER or RELATIONSHIP_OFFICER
-                        .requestMatchers("/api/auth/users/{id}/approve").hasAnyRole("MANAGER", "RELATIONSHIP_OFFICER", "SYSTEM_ADMIN")
+                        .requestMatchers("/api/auth/users/*/approve").hasAnyRole("MANAGER", "RELATIONSHIP_OFFICER", "SYSTEM_ADMIN")
                         // Staff approval - SYSTEM_ADMIN only
-                        .requestMatchers("/api/auth/staff/{id}/approve").hasRole("SYSTEM_ADMIN")
+                        .requestMatchers("/api/auth/staff/*/approve").hasRole("SYSTEM_ADMIN")
                         // User status update - MANAGER or SYSTEM_ADMIN
-                        .requestMatchers("/api/auth/users/{id}/status").hasAnyRole("MANAGER", "SYSTEM_ADMIN")
+                        .requestMatchers("/api/auth/users/*/status").hasAnyRole("MANAGER", "SYSTEM_ADMIN")
                         // Documentation token management - SYSTEM_ADMIN only
                         .requestMatchers("/api/auth/admin/docs/**").hasRole("SYSTEM_ADMIN")
                         // Audit endpoints - AUDITOR only
                         .requestMatchers("/api/audit/**").hasRole("AUDITOR")
                         // Loan approval - MANAGER or SYSTEM_ADMIN only
-                        .requestMatchers("/api/loans/**/approve").hasAnyRole("MANAGER", "SYSTEM_ADMIN")
+                        .requestMatchers("/api/loans/approve/**").hasAnyRole("MANAGER", "SYSTEM_ADMIN")
                         // Account search (non-owned) - TELLER or above
                         .requestMatchers("/api/accounts/search/**").hasAnyRole("TELLER", "RELATIONSHIP_OFFICER", "MANAGER", "AUDITOR", "SYSTEM_ADMIN")
                         // All other /api/** endpoints require authentication

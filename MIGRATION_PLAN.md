@@ -84,7 +84,42 @@ neobank-parent/ (multi-module Maven)
 **Goal:** Create module structure without breaking existing functionality
 
 #### Tasks
-1. **Create Multi-Module Maven Structure**
+
+**1.1 Docker Production Setup** ✅ COMPLETED
+- [x] Multi-stage Dockerfile for frontend (build + runtime)
+- [x] Backend Dockerfile with non-root user
+- [x] docker-compose.yml with 4 profiles:
+  - `--profile dev`: PostgreSQL + Ollama only (backend/frontend run locally)
+  - `--profile test`: All services in Docker with Ollama (integration testing)
+  - `--profile prod`: All services in Docker with OpenAI (production)
+  - `--profile demo`: All services + seed data (presentations/demos)
+- [x] Network isolation (neobank-network)
+- [x] Health checks for all services
+- [x] Container naming convention (neobank-backend, neobank-frontend)
+
+**Configuration:**
+```yaml
+# Development (backend/frontend local)
+docker-compose --profile dev up -d
+# Starts: PostgreSQL + Ollama
+# Run: mvn spring-boot:run + npm run dev
+
+# Integration testing (all Docker, Ollama AI)
+docker-compose --profile test up -d --build
+# Starts: PostgreSQL + Ollama + Backend + Frontend
+
+# Production (all Docker, OpenAI AI)
+export OPENAI_API_KEY=sk-key
+docker-compose --profile prod up -d --build
+# Starts: All services with OpenAI
+
+# Demo (all Docker + seed data)
+export NEOBANK_SEED_DATA=true
+docker-compose --profile demo up -d --build
+# Starts: All services with fake users, transactions, fraud alerts
+```
+
+**1.2 Create Multi-Module Maven Structure**
    - Parent POM with module declarations
    - Individual POMs for each module
    - Shared dependency management

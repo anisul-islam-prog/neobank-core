@@ -15,6 +15,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - neobank-network
 
   ollama:
     image: ollama/ollama:latest
@@ -30,14 +32,17 @@ services:
       retries: 5
       start_period: 120s
     profiles:
-      - local
+      - dev
       - test
+      - demo
+    networks:
+      - neobank-network
 
-  neobank-core:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: neobank-core
+    container_name: neobank-backend
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,8 +53,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/neobank
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-your_dummy_key_here}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      NEOBANK_SEED_DATA: ${NEOBANK_SEED_DATA:-false}
     ports:
       - "8080:8080"
     healthcheck:
@@ -59,32 +66,41 @@ services:
       retries: 3
       start_period: 60s
     profiles:
-      - local
+      - test
+      - prod
+      - demo
+    networks:
+      - neobank-network
 
-  neobank-core-cloud:
+  frontend:
     build:
-      context: .
+      context: ./frontend
       dockerfile: Dockerfile
-    container_name: neobank-core-cloud
+    container_name: neobank-frontend
     depends_on:
-      postgres:
+      backend:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/neobank
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-your_dummy_key_here}
-      SPRING_PROFILES_ACTIVE: openai
+      NEXT_PUBLIC_API_URL: http://backend:8080
+      NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-production}
     ports:
-      - "8081:8080"
+      - "3000:3000"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     profiles:
-      - openai
+      - test
+      - prod
+      - demo
+    networks:
+      - neobank-network
+
+networks:
+  neobank-network:
+    driver: bridge
 
 volumes:
   postgres_data:

@@ -13,6 +13,8 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -21,7 +23,8 @@ import java.util.UUID;
  * JWT authentication filter that extracts and validates tokens from requests.
  */
 @Component
-class JwtAuthenticationFilter extends OncePerRequestFilter {
+@Order(Ordered.HIGHEST_PRECEDENCE)
+class JwtAuthenticationFilter extends OncePerRequestFilter implements Ordered {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
@@ -34,6 +37,11 @@ class JwtAuthenticationFilter extends OncePerRequestFilter {
     public JwtAuthenticationFilter(JwtService jwtService, CustomUserDetailsService userDetailsService) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+    }
+
+    @Override
+    public int getOrder() {
+        return Ordered.HIGHEST_PRECEDENCE;
     }
 
     @Override
