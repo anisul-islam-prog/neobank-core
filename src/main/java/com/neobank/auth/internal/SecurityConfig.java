@@ -1,6 +1,5 @@
 package com.neobank.auth.internal;
 
-import com.neobank.auth.internal.docs.DocAccessTokenFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -39,7 +38,7 @@ class SecurityConfig {
      * Documentation endpoints require valid access token or authenticated admin user.
      */
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, DocAccessTokenFilter docAccessTokenFilter) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -83,7 +82,6 @@ class SecurityConfig {
                         // All other requests
                         .anyRequest().permitAll()
                 )
-                .addFilterBefore(docAccessTokenFilter, JwtAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

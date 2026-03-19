@@ -38,16 +38,36 @@ class JwtService {
     private long expirationTime;
 
     /**
-     * Generate a JWT token for a user.
+     * Audience claim for multi-portal security.
+     * Values: retail, staff, admin
+     */
+    @Value("${jwt.audience:retail}")
+    private String defaultAudience;
+
+    /**
+     * Generate a JWT token for a user with default audience.
      *
      * @param userId the user ID
      * @param username the username
      * @return the JWT token
      */
     String generateToken(UUID userId, String username) {
+        return generateToken(userId, username, defaultAudience);
+    }
+
+    /**
+     * Generate a JWT token for a user with specific audience.
+     *
+     * @param userId the user ID
+     * @param username the username
+     * @param audience the audience claim (retail, staff, or admin)
+     * @return the JWT token
+     */
+    String generateToken(UUID userId, String username, String audience) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId.toString());
         claims.put("username", username);
+        claims.put("aud", audience);
 
         return Jwts.builder()
                 .claims(claims)
@@ -90,6 +110,16 @@ class JwtService {
     }
 
     /**
+     * Extract audience claim from token.
+     *
+     * @param token the JWT token
+     * @return the audience (retail, staff, or admin)
+     */
+    String extractAudience(String token) {
+        return extractClaim(token, claims -> claims.get("aud", String.class));
+    }
+
+    /**
      * Validate token for a user.
      *
      * @param token the JWT token
@@ -99,6 +129,18 @@ class JwtService {
     boolean validateToken(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+    }
+
+    /**
+     * Validate token audience for a specific portal.
+     *
+     * @param token the JWT token
+     * @param expectedAudience the expected audience (retail, staff, or admin)
+     * @return true if audience matches
+     */
+    boolean validateAudience(String token, String expectedAudience) {
+        String audience = extractAudience(token);
+        return expectedAudience.equals(audience);
     }
 
     /**

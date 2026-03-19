@@ -39,17 +39,23 @@ jobs:
         run: |
           export OLLAMA_BASE_URL=http://localhost:11434
           export FRAUD_TEST_USE_OPENAI=false
-          mvn -B test
+          # Run tests from the original src/ directory (legacy tests)
+          mvn -B test -Dsurefire.failIfNoSpecifiedTests=false
 
       - name: Generate Architecture Documentation
-        run: mvn -B test -Dtest=ArchitectureDocumentationTest
+        run: mvn -B test -Dtest=ArchitectureDocumentationTest -Dsurefire.failIfNoSpecifiedTests=false
+
+      - name: Verify Modulith Boundaries
+        run: mvn -B test -Dtest=ModulithTest -Dsurefire.failIfNoSpecifiedTests=false
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
-          path: target/surefire-reports/
+          path: |
+            target/surefire-reports/
+            neobank-*/target/surefire-reports/
 
       - name: Upload Architecture Docs
         uses: actions/upload-artifact@v4

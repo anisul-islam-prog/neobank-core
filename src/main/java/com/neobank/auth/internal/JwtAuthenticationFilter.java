@@ -49,10 +49,22 @@ class JwtAuthenticationFilter extends OncePerRequestFilter implements Ordered {
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
             String jwt = extractJwtFromRequest(request);
+            String requestPath = request.getRequestURI();
 
             if (StringUtils.hasText(jwt)) {
                 UUID userId = jwtService.extractUserId(jwt);
                 String username = jwtService.extractUsername(jwt);
+                String audience = jwtService.extractAudience(jwt);
+
+                // Validate audience based on request path
+                String expectedAudience = determineExpectedAudience(requestPath);
+                if (expectedAudience != null && !jwtService.validateAudience(jwt, expectedAudience)) {
+                    log.warn("Audience mismatch: expected {}, got {} for user {} on path {}", 
+                             expectedAudience, audience, username, requestPath);
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, 
+                                       "Invalid token audience for this portal");
+                    return;
+                }
 
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
@@ -66,7 +78,7 @@ class JwtAuthenticationFilter extends OncePerRequestFilter implements Ordered {
                                 );
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authToken);
-                        log.debug("Authenticated user: {} ({})", username, userId);
+                        log.debug("Authenticated user: {} ({}) with audience: {}", username, userId, audience);
                     }
                 }
             }
@@ -75,6 +87,24 @@ class JwtAuthenticationFilter extends OncePerRequestFilter implements Ordered {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Determine expected audience based on request path.
+     * Returns null if no specific audience is required.
+     */
+    private String determineExpectedAudience(String path) {
+        if (path.startsWith("/api/retail/") || path.startsWith("/api/accounts/") || 
+            path.startsWith("/api/transfers/")) {
+            return "retail";
+        } else if (path.startsWith("/api/staff/") || path.startsWith("/api/onboarding/") ||
+                   path.startsWith("/api/loans/")) {
+            return "staff";
+        } else if (path.startsWith("/api/admin/") || path.startsWith("/api/audit/") ||
+                   path.startsWith("/swagger-ui/") || path.startsWith("/v3/api-docs/")) {
+            return "admin";
+        }
+        return null;  // No specific audience required
     }
 
     /**

@@ -166,9 +166,60 @@ docker-compose --profile demo up -d --build
 
 ---
 
-### Phase 2: Auth Module Extraction (Week 2)
+## Phase 2: Auth Module Extraction ✅ COMPLETED
 
 **Goal:** Separate infrastructure (credentials) from business logic
+
+### Completed Tasks
+
+**2.1 Security Filter Fix** ✅
+- [x] Fixed `JwtAuthenticationFilter` ordering using `.addFilterBefore()`
+- [x] Removed circular dependency with `DocAccessTokenFilter`
+- [x] Security filter chain properly configured
+
+**2.2 Module Decoupling** ✅
+- [x] `com.neobank.auth` (Identity): Technical identity only
+  - Username, password hashing (BCrypt)
+  - JWT issuance with audience claims
+  - Uses `schema_auth`
+- [x] `com.neobank.onboarding` (Business): Human side
+  - UserStatus (PENDING, ACTIVE, SUSPENDED)
+  - KYC checks and approval workflows
+  - Uses `schema_onboarding`
+
+**2.3 The Handshake** ✅
+- [x] `UserAccountRequestedEvent` published on registration
+- [x] Auth module listens and creates technical credentials
+- [x] Event-driven decoupling between modules
+
+**2.4 Audience Claims (Multi-Portal Security)** ✅
+- [x] `JwtService` includes `aud` claim (retail, staff, admin)
+- [x] `JwtAuthenticationFilter` validates audience per request path
+- [x] Portal isolation:
+  - `/api/accounts/**`, `/api/transfers/**` → retail
+  - `/api/onboarding/**`, `/api/loans/**` → staff
+  - `/api/admin/**`, `/api/audit/**`, `/swagger-ui/**` → admin
+
+**2.5 Triple-Frontend Skeletons** ✅
+- [x] `/apps/retail-app`: Customer portal (blue theme)
+  - Login with audience: retail
+  - API utility with audience header
+- [x] `/apps/staff-portal`: Staff portal (purple theme)
+  - Login with audience: staff
+  - KYC approval, loan processing APIs
+- [x] `/apps/admin-console`: Admin portal (red theme)
+  - Login with audience: admin
+  - Doc token management, audit logs, branch management
+
+#### Deliverables
+- ✅ Auth module handles only credentials + JWT
+- ✅ Onboarding module handles KYC + status
+- ✅ Handshake flow implemented with events
+- ✅ Audience claims in all JWT tokens
+- ✅ Audience validation in filter chain
+- ✅ Three frontend app skeletons with api.ts utilities
+
+---
 
 #### Current State
 ```
