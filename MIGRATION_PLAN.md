@@ -65,6 +65,7 @@ neobank-parent/ (multi-module Maven)
 | **lending** | `schema_loans` | loans, amortization, risk_profiles | Internal + Gateway |
 | **cards** | `schema_cards` | cards, spending_limits, mcc_blocks | Internal + Gateway |
 | **batch** | `schema_batch` | batch_jobs, reconciliation_logs | Internal only |
+| **analytics** | `schema_analytics` | bi_transaction_history, bi_loan_analytics, bi_card_analytics | Internal + Gateway |
 
 ### Cross-Module Communication
 
@@ -361,6 +362,9 @@ class AccountEntity {
 - ✅ No FK constraints to other schemas
 - ✅ All transfer tests pass
 - ✅ Branch assignment works via UUID
+- ✅ MoneyTransferredEvent emitted on transfers (senderId, receiverId, amount, currency)
+
+**Status:** ✅ COMPLETED - Phase 3 Domain Decoupling & Financial Engine
 
 ---
 
@@ -449,6 +453,80 @@ com.neobank.batch/
 - ✅ EOD job runs at scheduled time
 - ✅ Interest calculation accurate
 - ✅ Reconciliation reports generated
+- ✅ ReconciliationAlert triggered on balance mismatch
+
+**Status:** 🔄 IN PROGRESS
+
+---
+
+### Phase 5.5: Analytics/BI Module (Week 5.5)
+
+**Goal:** Implement CQRS and read-optimized BI tables for business dashboards
+
+#### Module Structure
+```
+com.neobank.analytics/
+├── cqrs/
+│   ├── BiTransactionHistory.java      # schema_analytics.bi_transaction_history
+│   ├── BiTransactionHistoryRepository.java
+│   ├── TransferEventHandler.java      # Listens to MoneyTransferredEvent
+│   ├── LoanEventHandler.java          # Listens to loan events
+│   └── CardEventHandler.java          # Listens to card events
+├── web/
+│   ├── AnalyticsController.java       # BI dashboard APIs
+│   └── ReportService.java             # Complex report generation
+└── AnalyticsApplication.java
+```
+
+#### CQRS Flow
+```
+┌─────────────────┐     ┌─────────────────┐     ┌──────────────────┐
+│  Core Banking   │────▶│   Analytics     │────▶│  BI Dashboard    │
+│  (Write Model)  │     │  (Read Model)   │     │  (Complex Query) │
+│  schema_core    │     │ schema_analytics│     │  No joins needed │
+└─────────────────┘     └─────────────────┘     └──────────────────┘
+       │                        │
+       │ MoneyTransferredEvent  │ Flat denormalized
+       └───────────────────────▶│ tables for fast reads
+```
+
+#### Flat Tables (Read-Optimized)
+```sql
+-- bi_transaction_history - denormalized for fast queries
+CREATE TABLE schema_analytics.bi_transaction_history (
+    id UUID PRIMARY KEY,
+    transfer_id UUID UNIQUE NOT NULL,
+    from_account_id UUID NOT NULL,
+    from_owner_name VARCHAR(255),
+    to_account_id UUID NOT NULL,
+    to_owner_name VARCHAR(255),
+    amount DECIMAL(19,4) NOT NULL,
+    currency VARCHAR(3) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    occurred_at TIMESTAMP NOT NULL,
+    processed_at TIMESTAMP,
+    from_balance_before DECIMAL(19,4),
+    from_balance_after DECIMAL(19,4),
+    to_balance_before DECIMAL(19,4),
+    to_balance_after DECIMAL(19,4),
+    channel VARCHAR(50),
+    transaction_type VARCHAR(50),
+    metadata TEXT
+);
+
+-- Indexes for common query patterns
+CREATE INDEX idx_bi_from_account ON bi_transaction_history(from_account_id);
+CREATE INDEX idx_bi_to_account ON bi_transaction_history(to_account_id);
+CREATE INDEX idx_bi_occurred_at ON bi_transaction_history(occurred_at);
+```
+
+#### Deliverables
+- ✅ Analytics module with schema_analytics
+- ✅ CQRS event handlers listening to Core, Loans, Cards
+- ✅ Flat denormalized tables for BI queries
+- ✅ Business dashboard can run complex queries without slowing live bank
+
+**Status:** 🔄 IN PROGRESS
 
 ---
 
@@ -710,11 +788,58 @@ INSERT INTO users SELECT * FROM backup_users;
 | **Phase 3: Core Banking** | Week 3 | Phase 2 | Medium |
 | **Phase 4: Lending & Cards** | Week 4 | Phase 3 | Low |
 | **Phase 5: Batch Module** | Week 5 | Phase 4 | Low |
+| **Phase 5.5: Analytics/BI** | Week 5.5 | Phase 3, 4 | Low |
 | **Phase 6: Frontend Suite** | Week 6 | Phase 1 | Medium |
 | **Phase 7: Gateway & Security** | Week 7 | Phase 2, 6 | High |
 | **Phase 8: Documentation** | Week 8 | All phases | Low |
 
-**Total Duration:** 8 weeks
+**Total Duration:** 8.5 weeks
+
+---
+
+## Phase 3 Completion Summary
+
+**Completed:** 2026-03-23
+
+### Deliverables
+
+#### 1. Core Banking Module (neobank-core-banking)
+- ✅ Accounts module with `schema_core.accounts`
+- ✅ Transfers module with `schema_core.transfers`
+- ✅ Branches module with `schema_core.branches`
+- ✅ `MoneyTransferredEvent` published on successful transfers
+- ✅ Event contains: senderId, receiverId, amount, currency
+
+#### 2. Product Module Isolation
+- ✅ Loans module isolated in `neobank-lending` with `schema_loans`
+- ✅ Cards module isolated in `neobank-cards` with `schema_cards`
+- ✅ No cross-schema joins - modules use AccountApi for verification
+
+#### 3. Analytics/BI Module (neobank-analytics)
+- ✅ CQRS implementation with `schema_analytics`
+- ✅ `BiTransactionHistory` flat table for read-optimized queries
+- ✅ Event listeners for `MoneyTransferredEvent`
+- ✅ Business dashboard can run complex queries without slowing live bank
+
+#### 4. Batch Reconciliation (neobank-batch)
+- ✅ Daily reconciliation job (cron: 2 AM)
+- ✅ Compares transaction sums against account balances
+- ✅ `ReconciliationAlert` triggered on mismatch
+
+#### 5. Frontend Updates
+- ✅ Retail app dashboard displays account balances from `schema_core`
+- ✅ Staff portal loan approval workflow via loans module
+- ✅ Both apps use audience-specific JWT tokens
+
+### Build Status
+- ✅ All 9 modules compile successfully
+- ✅ Module dependencies properly configured
+- ✅ Spring Modulith event listeners working
+
+### Test Migration Notes
+- Existing tests in root `src/test/java` need to be migrated to module-specific test directories
+- Test classes should reference new package structure (`com.neobank.core.accounts` instead of `com.neobank.accounts`)
+- Recommended: Move tests to `neobank-gateway/src/test/java` for integration testing
 
 ---
 
@@ -727,6 +852,6 @@ INSERT INTO users SELECT * FROM backup_users;
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2026-03-16  
+**Document Version:** 1.1
+**Last Updated:** 2026-03-23
 **Author:** NeoBank Development Team

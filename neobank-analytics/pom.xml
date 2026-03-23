@@ -11,18 +11,26 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>neobank-core-banking</artifactId>
-    <name>NeoBank Core Banking</name>
-    <description>Core Banking Module - Accounts, Transfers, Branches (schema_core)</description>
+    <artifactId>neobank-analytics</artifactId>
+    <name>NeoBank Analytics</name>
+    <description>Analytics/BI Module - CQRS, Read-Optimized Tables (schema_analytics)</description>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.modulith</groupId>
-            <artifactId>spring-modulith-starter-core</artifactId>
+            <artifactId>spring-modulith-starter-jpa</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.github.resilience4j</groupId>
-            <artifactId>resilience4j-spring-boot3</artifactId>
+            <groupId>com.neobank</groupId>
+            <artifactId>neobank-core-banking</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.neobank</groupId>
+            <artifactId>neobank-lending</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.neobank</groupId>
+            <artifactId>neobank-cards</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

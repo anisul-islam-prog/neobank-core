@@ -1,0 +1,76 @@
+package com.neobank.core.accounts;
+
+import com.neobank.core.accounts.api.AccountApi;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Service for account management operations.
+ */
+@Service
+@Transactional
+public class AccountService implements AccountApi {
+
+    private final AccountRepository accountRepository;
+    private final AccountMapper accountMapper;
+
+    public AccountService(AccountRepository accountRepository, AccountMapper accountMapper) {
+        this.accountRepository = accountRepository;
+        this.accountMapper = accountMapper;
+    }
+
+    public Account createNewAccount(String owner, BigDecimal initialBalance) {
+        return createNewAccountWithBranch(owner, initialBalance, null);
+    }
+
+    public Account createNewAccountWithBranch(String owner, BigDecimal initialBalance, UUID branchId) {
+        Account account = new Account(UUID.randomUUID(), owner, initialBalance);
+        AccountEntity entity = accountMapper.toEntity(account);
+        entity.setBranchId(branchId);
+        AccountEntity saved = accountRepository.save(entity);
+        return accountMapper.toDomain(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Account> getAccount(UUID id) {
+        return accountRepository.findById(id)
+                .map(accountMapper::toDomain);
+    }
+
+    @Transactional(readOnly = true)
+    public Account getAccountById(UUID id) {
+        return accountRepository.findById(id)
+                .map(accountMapper::toDomain)
+                .orElseThrow(() -> new RuntimeException("Account not found with id: " + id));
+    }
+
+    @Override
+    @Transactional
+    public Account getAccountWithLock(UUID id) {
+        return accountRepository.findByIdWithLock(id)
+                .map(accountMapper::toDomain)
+                .orElseThrow(() -> new RuntimeException("Account not found with id: " + id));
+    }
+
+    @Override
+    @Transactional
+    public Account creditAccount(UUID accountId, BigDecimal amount) {
+        Account account = getAccountWithLock(accountId);
+        Account updated = new Account(
+                account.id(),
+                account.ownerName(),
+                account.balance().add(amount)
+        );
+        return updateAccount(updated);
+    }
+
+    public Account updateAccount(Account account) {
+        AccountEntity entity = accountMapper.toEntity(account);
+        AccountEntity updated = accountRepository.save(entity);
+        return accountMapper.toDomain(updated);
+    }
+}

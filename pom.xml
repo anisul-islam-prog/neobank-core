@@ -27,6 +27,7 @@
         <module>neobank-lending</module>
         <module>neobank-cards</module>
         <module>neobank-batch</module>
+        <module>neobank-analytics</module>
     </modules>
 
     <properties>
@@ -87,6 +88,11 @@
             <dependency>
                 <groupId>com.neobank</groupId>
                 <artifactId>neobank-batch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.neobank</groupId>
+                <artifactId>neobank-analytics</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
