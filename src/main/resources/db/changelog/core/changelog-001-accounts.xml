@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.35.xsd">
+
+    <!-- Core Banking Module: Accounts Schema -->
+    <changeSet id="core-001" author="neobank">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="accounts" schemaName="schema_core"/>
+            </not>
+        </preConditions>
+        
+        <createTable tableName="accounts" schemaName="schema_core">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="owner_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="balance" type="DECIMAL(19,4)" defaultValue="0.0000">
+                <constraints nullable="false"/>
+            </column>
+            <column name="currency" type="CHAR(3)" defaultValue="USD">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_type" type="VARCHAR(50)" defaultValue="CHECKING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(50)" defaultValue="ACTIVE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="branch_id" type="UUID"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="version" type="BIGINT" defaultValue="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        
+        <createIndex tableName="accounts" schemaName="schema_core" indexName="idx_accounts_owner">
+            <column name="owner_name"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

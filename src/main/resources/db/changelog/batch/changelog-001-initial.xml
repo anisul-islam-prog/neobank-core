@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.35.xsd">
+
+    <!-- Batch Module: Initial Schema -->
+    <changeSet id="batch-001" author="neobank">
+        <comment>Initial batch schema - to be implemented</comment>
+        <sql>
+            -- Placeholder for batch schema
+            -- Will contain: batch_jobs, batch_job_executions, step_executions
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

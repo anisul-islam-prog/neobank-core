@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.35.xsd">
+
+    <!-- Auth Module: Roles and Permissions -->
+    <changeSet id="auth-002" author="neobank">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="user_roles" schemaName="schema_auth"/>
+            </not>
+        </preConditions>
+        
+        <createTable tableName="user_roles" schemaName="schema_auth">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_user_roles_user" references="schema_auth.users(id)"/>
+            </column>
+            <column name="role" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="granted_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        
+        <createIndex tableName="user_roles" schemaName="schema_auth" indexName="idx_user_roles_user_id">
+            <column name="user_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

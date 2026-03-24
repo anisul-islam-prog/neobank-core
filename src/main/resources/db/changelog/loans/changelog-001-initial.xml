@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.35.xsd">
+
+    <!-- Lending Module: Initial Schema -->
+    <changeSet id="loans-001" author="neobank">
+        <comment>Initial lending schema - to be implemented</comment>
+        <sql>
+            -- Placeholder for loans schema
+            -- Will contain: loan_applications, loans, repayments, credit_scores
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1383,6 +1383,254 @@ cd tests-e2e && npm test
 
 ---
 
-**Document Version:** 1.4
-**Last Updated:** 2026-03-23
+**Document Version:** 1.5
+**Last Updated:** 2026-03-24
 **Author:** NeoBank Development Team
+
+---
+
+## Phase 7: Resilience & Fault Tolerance (Week 8)
+
+**Goal:** Ensure that a failure in one module does not bring down the entire system
+
+**Status:** ✅ COMPLETED
+
+### 7.1 Circuit Breakers & Retries (Resilience4j)
+
+**Implementation:**
+- Circuit breakers on all inter-module calls
+- Retry logic with exponential backoff for transient failures
+- Fallback mechanisms for graceful degradation
+
+**Configuration:**
+```properties
+# Circuit Breaker Defaults
+resilience4j.circuitbreaker.configs.default.failure-rate-threshold=50
+resilience4j.circuitbreaker.configs.default.wait-duration-in-open-state=30s
+resilience4j.circuitbreaker.configs.default.minimum-number-of-calls=5
+
+# Transfer Service (Critical Path)
+resilience4j.circuitbreaker.instances.transfer.failure-rate-threshold=50
+resilience4j.circuitbreaker.instances.transfer.wait-duration-in-open-state=30s
+resilience4j.circuitbreaker.instances.transfer.register-failure-rate-exception=true
+
+# Retry with Exponential Backoff
+resilience4j.retry.instances.transfer.max-attempts=3
+resilience4j.retry.instances.transfer.wait-duration=500ms
+resilience4j.retry.instances.transfer.enable-exponential-backoff=true
+resilience4j.retry.instances.transfer.exponential-backoff-multiplier=2
+```
+
+**Inter-Module Circuit Breakers:**
+| Module Pair | Circuit Breaker | Fallback |
+|-------------|-----------------|----------|
+| Onboarding → Auth | `auth` | Return cached user status |
+| Transfers → Analytics | `analytics` | Queue event locally |
+| Lending → Core Banking | `core` | Return account not found |
+| Cards → Core Banking | `core` | Return account not found |
+
+### 7.2 Fallback Mechanism for Analytics
+
+**Analytics Fallback Service:**
+```java
+@Service
+public class AnalyticsFallbackService {
+    private final ConcurrentHashMap<String, List<QueuedAnalyticsEvent>> eventQueue;
+    
+    // Queue events when analytics is unavailable
+    public void queueEventForLater(String eventType, Map<String, Object> eventData);
+    
+    // Replay events when analytics recovers
+    public void triggerReplay(AnalyticsEventReplayer replayer);
+}
+```
+
+**Behavior:**
+- When analytics module is down, events are queued in memory
+- Queue size monitored (warning at 80% capacity)
+- Events replayed asynchronously when service recovers
+- Maximum queue size: 10,000 events
+
+### 7.3 API Rate Limiting (Bucket4j)
+
+**Rate Limits by User Type:**
+| User Type | Limit | Window | Purpose |
+|-----------|-------|--------|---------|
+| Retail App Users | 100 requests | per minute | Normal usage |
+| Staff Portal Users | 500 requests | per minute | Higher operational needs |
+| Public Registration | 5 requests | per minute | Prevent bot spam |
+| Unauthenticated (IP) | 60 requests | per minute | General API access |
+
+**Implementation:**
+```java
+@Component
+@Order(2)
+public class RateLimitingFilter extends OncePerRequestFilter {
+    // Token buckets per user/IP
+    private final Map<String, Bucket> userBuckets = new ConcurrentHashMap<>();
+    private final Map<String, Bucket> ipBuckets = new ConcurrentHashMap<>();
+    
+    // Rate limit based on user role
+    // Returns 429 Too Many Requests when exceeded
+}
+```
+
+**Response Headers:**
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 60
+```
+
+### 7.4 Database Migration Management (Liquibase)
+
+**Changelog Structure:**
+```
+db/changelog/
+├── db.changelog-master.xml
+├── auth/
+│   ├── changelog-001-initial.xml
+│   └── changelog-002-roles.xml
+├── onboarding/
+│   └── changelog-001-initial.xml
+├── core/
+│   ├── changelog-001-accounts.xml
+│   ├── changelog-002-transfers.xml
+│   └── changelog-003-branches.xml
+├── loans/
+│   └── changelog-001-initial.xml
+├── cards/
+│   └── changelog-001-initial.xml
+├── batch/
+│   └── changelog-001-initial.xml
+└── analytics/
+    └── changelog-001-initial.xml
+```
+
+**Benefits:**
+- Automatic schema changes on application startup
+- Version-controlled database migrations
+- Rollback support for each changeset
+- Pre-conditions to prevent duplicate execution
+
+### 7.5 Bulkhead Pattern (Thread Pool Isolation)
+
+**Thread Pool Configuration:**
+```properties
+# Critical Path (Transfers, Auth)
+neobank.threadpool.critical.core-size=20
+neobank.threadpool.critical.max-size=50
+neobank.threadpool.critical.queue-capacity=100
+
+# Non-Critical Path (BI, Analytics)
+neobank.threadpool.non-critical.core-size=5
+neobank.threadpool.non-critical.max-size=15
+neobank.threadpool.non-critical.queue-capacity=50
+```
+
+**Isolation Strategy:**
+| Path Type | Operations | Thread Pool | Max Concurrent |
+|-----------|------------|-------------|----------------|
+| Critical | Transfers, Auth, Payments | `critical-executor` | 50 |
+| Non-Critical | Analytics, BI Reports | `non-critical-executor` | 20 |
+| Background | Batch Jobs, Notifications | `bulkhead-onboarding` | 30 |
+
+**Protection:**
+- Heavy BI reports cannot starve transfer operations
+- Separate queue capacities prevent resource contention
+- Rejected execution policies differ by priority
+
+### 7.6 Security Hardening
+
+**CORS Policies:**
+```java
+// Only these 3 specific frontend domains allowed
+private static final List<String> ALLOWED_ORIGINS = List.of(
+    "https://retail.neobank.com",      // Retail banking portal
+    "https://staff.neobank.com",       // Staff portal
+    "https://admin.neobank.com"        // Admin console
+);
+```
+
+**Cookie Security:**
+- `HttpOnly: true` - Prevents XSS attacks
+- `Secure: true` - Only sent over HTTPS
+- `SameSite: Strict` - Prevents CSRF attacks
+- `Domain: neobank.com` - Scoped to company domain
+
+**CSRF Protection:**
+- Cookie-based CSRF tokens
+- Double-submit cookie pattern
+- Ignored for JWT-authenticated API endpoints
+- Enabled for browser-based operations
+
+**Security Headers:**
+```
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+```
+
+### 7.7 Testing & Verification
+
+**Resilience Tests:**
+```java
+@Test
+void circuitBreaker_opensAfterFailureThreshold() {
+    // Simulate 5 failures
+    // Verify circuit opens
+    // Verify fallback returns 503
+}
+
+@Test
+void retry_withExponentialBackoff_succeedsEventually() {
+    // Simulate transient failure
+    // Verify retry with backoff
+    // Verify eventual success
+}
+
+@Test
+void rateLimit_exceedsLimit_returns429() {
+    // Send 101 requests in 1 minute
+    // Verify 429 response
+    // Verify X-RateLimit headers
+}
+```
+
+**Chaos Engineering Scenarios:**
+- Kill analytics module during transfer
+- Simulate database connection timeout
+- Inject network latency between modules
+- Exhaust thread pool with slow requests
+
+### 7.8 Monitoring & Alerting
+
+**Resilience4j Actuator Endpoints:**
+```bash
+# Circuit breaker status
+GET /actuator/circuitbreakers
+
+# Bulkhead status
+GET /actuator/bulkheads
+
+# Rate limiter status
+GET /actuator/ratelimiters
+
+# Retry status
+GET /actuator/retries
+```
+
+**Key Metrics:**
+- `resilience4j.circuitbreaker.state` - Current state (CLOSED, OPEN, HALF_OPEN)
+- `resilience4j.circuitbreaker.failure.rate` - Failure rate percentage
+- `resilience4j.bulkhead.concurrent.calls` - Current concurrent calls
+- `resilience4j.ratelimiter.available.tokens` - Available tokens
+
+**Alerting Rules:**
+- Circuit breaker OPEN for > 5 minutes
+- Failure rate > 40% in 5-minute window
+- Bulkhead queue > 80% capacity
+- Rate limit exceeded > 100 times/minute

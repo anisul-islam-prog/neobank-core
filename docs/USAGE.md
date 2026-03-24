@@ -666,6 +666,33 @@ These endpoints do NOT require authentication:
 | `/api/accounts` | POST | Create new account |
 | `/swagger-ui.html` | GET | API documentation |
 
+### API Rate Limiting
+
+NeoBank implements rate limiting to protect against abuse and ensure fair usage.
+
+| User Type | Limit | Window | Response on Exceed |
+|-----------|-------|--------|-------------------|
+| Retail Users | 100 requests | per minute | 429 Too Many Requests |
+| Staff/Admin Users | 500 requests | per minute | 429 Too Many Requests |
+| Public Registration | 5 requests | per minute | 429 Too Many Requests |
+| Unauthenticated (IP) | 60 requests | per minute | 429 Too Many Requests |
+
+**Rate Limit Headers:**
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 60
+```
+
+### CORS Policies
+
+Only the following frontend domains are allowed to access the API:
+- `https://retail.neobank.com` (Retail banking portal)
+- `https://staff.neobank.com` (Staff portal)
+- `https://admin.neobank.com` (Admin console)
+
+Development origins (localhost) are allowed only in `dev` profile.
+
 ### Security Best Practices
 
 1. **Never share your token** - Treat it like a password
@@ -673,6 +700,8 @@ These endpoints do NOT require authentication:
 3. **Store securely** - Use environment variables or secure vaults
 4. **Rotate regularly** - Login periodically for fresh tokens
 5. **Logout when done** - Invalidate tokens after use
+6. **Respect rate limits** - Implement exponential backoff on 429 responses
+7. **Use secure cookies** - All cookies are HttpOnly, Secure, SameSite=Strict
 
 ### Testing with Swagger UI
 
@@ -683,6 +712,80 @@ The easiest way to test authenticated endpoints:
 3. Enter your JWT token (without "Bearer " prefix)
 4. Click **Authorize**
 5. All endpoints now include your token automatically
+
+---
+
+## Resilience & Fault Tolerance
+
+### Circuit Breakers
+
+NeoBank uses Resilience4j circuit breakers to prevent cascading failures.
+
+**Circuit Breaker States:**
+- **CLOSED** (Normal) - Requests flow normally
+- **OPEN** (Failure) - Requests fail fast with 503
+- **HALF_OPEN** (Recovery) - Test requests to check recovery
+
+**Configuration:**
+| Module | Failure Threshold | Open Duration | Min Calls |
+|--------|------------------|---------------|-----------|
+| Transfer | 50% | 30 seconds | 5 calls |
+| Auth | 50% | 20 seconds | 3 calls |
+| Analytics | 40% | 120 seconds | 2 calls |
+
+**Fallback Behavior:**
+- Analytics failures: Events queued locally for later replay
+- Auth failures: Cached tokens remain valid
+- Transfer failures: Return 503 with retry suggestion
+
+### Retry Logic
+
+Transient failures are automatically retried with exponential backoff.
+
+**Retry Configuration:**
+- **Max attempts**: 3
+- **Initial wait**: 500ms
+- **Backoff multiplier**: 2x
+- **Max wait**: 5 seconds
+
+**Example:**
+```
+Attempt 1: T+0s (fails)
+Attempt 2: T+500ms (fails)
+Attempt 3: T+1500ms (succeeds)
+```
+
+### Bulkhead Pattern
+
+Separate thread pools isolate critical and non-critical operations.
+
+| Thread Pool | Max Concurrent | Queue Capacity | Use Case |
+|-------------|---------------|----------------|----------|
+| Critical | 50 | 100 | Transfers, Auth, Payments |
+| Non-Critical | 20 | 50 | BI Reports, Analytics |
+| Onboarding | 30 | 50 | KYC, User Management |
+
+**Benefit:** Heavy BI reports cannot starve transfer operations.
+
+### Monitoring Resilience
+
+**Actuator Endpoints:**
+```bash
+# Circuit breaker status
+curl http://localhost:8080/actuator/circuitbreakers
+
+# Bulkhead status
+curl http://localhost:8080/actuator/bulkheads
+
+# Rate limiter status
+curl http://localhost:8080/actuator/ratelimiters
+```
+
+**Grafana Dashboards:**
+- Circuit Breaker States
+- Failure Rate Over Time
+- Bulkhead Utilization
+- Rate Limit Rejections
 
 ---
 

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.35.xsd">
+
+    <!-- Auth Module: Initial Schema -->
+    <changeSet id="auth-001" author="neobank">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="users" schemaName="schema_auth"/>
+            </not>
+        </preConditions>
+        
+        <createTable tableName="users" schemaName="schema_auth">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="username" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="email" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="password_hash" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_login_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="failed_login_attempts" type="INTEGER" defaultValue="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="locked_until" type="TIMESTAMP WITH TIME ZONE"/>
+        </createTable>
+        
+        <createIndex tableName="users" schemaName="schema_auth" indexName="idx_users_username">
+            <column name="username"/>
+        </createIndex>
+        
+        <createIndex tableName="users" schemaName="schema_auth" indexName="idx_users_email">
+            <column name="email"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

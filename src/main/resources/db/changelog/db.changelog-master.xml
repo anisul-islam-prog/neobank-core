@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.35.xsd">
+
+    <!-- 
+    NeoBank Master Changelog - Phase 7: Database Migration Management
+    This file includes all module-specific changelogs organized by schema.
+    Liquibase will automatically apply these changes on application startup.
+    -->
+
+    <!-- Include Auth Module Changes (schema_auth) -->
+    <include file="db/changelog/auth/changelog-001-initial.xml"/>
+    <include file="db/changelog/auth/changelog-002-roles.xml"/>
+
+    <!-- Include Onboarding Module Changes (schema_onboarding) -->
+    <include file="db/changelog/onboarding/changelog-001-initial.xml"/>
+
+    <!-- Include Core Banking Module Changes (schema_core) -->
+    <include file="db/changelog/core/changelog-001-accounts.xml"/>
+    <include file="db/changelog/core/changelog-002-transfers.xml"/>
+    <include file="db/changelog/core/changelog-003-branches.xml"/>
+
+    <!-- Include Lending Module Changes (schema_loans) -->
+    <include file="db/changelog/loans/changelog-001-initial.xml"/>
+
+    <!-- Include Cards Module Changes (schema_cards) -->
+    <include file="db/changelog/cards/changelog-001-initial.xml"/>
+
+    <!-- Include Batch Module Changes (schema_batch) -->
+    <include file="db/changelog/batch/changelog-001-initial.xml"/>
+
+    <!-- Include Analytics Module Changes (schema_analytics) -->
+    <include file="db/changelog/analytics/changelog-001-initial.xml"/>
+
+</databaseChangeLog>

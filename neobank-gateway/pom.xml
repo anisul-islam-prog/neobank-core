@@ -78,6 +78,13 @@
             <artifactId>resilience4j-spring-boot3</artifactId>
         </dependency>
 
+        <!-- Bucket4j for Rate Limiting -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j-core</artifactId>
+            <version>8.6.0</version>
+        </dependency>
+
         <!-- Spring Modulith -->
         <dependency>
             <groupId>org.springframework.modulith</groupId>

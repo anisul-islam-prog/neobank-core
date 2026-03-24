@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.35.xsd">
+
+    <!-- Cards Module: Initial Schema -->
+    <changeSet id="cards-001" author="neobank">
+        <comment>Initial cards schema - to be implemented</comment>
+        <sql>
+            -- Placeholder for cards schema
+            -- Will contain: cards, card_transactions, card_limits
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
