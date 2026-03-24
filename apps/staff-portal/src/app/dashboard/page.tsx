@@ -25,7 +25,7 @@ interface User {
 
 export default function StaffDashboardPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'loans' | 'kyc'>('loans');
+  const [activeTab, setActiveTab] = useState<'loans' | 'kyc' | 'approvals'>('loans');
   const [loans, setLoans] = useState<Loan[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +120,16 @@ export default function StaffDashboardPage() {
             }`}
           >
             KYC Approvals
+          </button>
+          <button
+            onClick={() => router.push('/dashboard/approvals')}
+            className={`px-4 py-2 font-medium ${
+              activeTab === 'approvals'
+                ? 'border-b-2 border-purple-600 text-purple-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            🔒 Maker-Checker Queue
           </button>
         </div>
       </div>

@@ -34,4 +34,20 @@ public sealed interface TransactionResult {
             return false;
         }
     }
+
+    record Pending(String message, UUID authorizationId) implements TransactionResult {
+        public Pending {
+            if (message == null) {
+                throw new IllegalArgumentException("message must not be null");
+            }
+            if (authorizationId == null) {
+                throw new IllegalArgumentException("authorizationId must not be null");
+            }
+        }
+
+        @Override
+        public boolean isSuccess() {
+            return false;
+        }
+    }
 }

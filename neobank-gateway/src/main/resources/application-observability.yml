@@ -1,0 +1,53 @@
+# NeoBank Observability Configuration
+# This configuration enables distributed tracing and metrics collection
+
+management:
+  # Enable all actuator endpoints
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,threaddump,heapdump,env,loggers,tracing
+  
+  # Metrics configuration
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        http.client.requests: true
+  
+  # Prometheus metrics endpoint
+  endpoint:
+    prometheus:
+      enabled: true
+    health:
+      enabled: true
+  
+  # Tracing configuration (OpenTelemetry)
+  tracing:
+    sampling:
+      probability: 1.0  # Capture every request (for dev/demo - reduce in production)
+    propagation:
+      type: tracecontext,b3
+  
+  # Observability exporters
+  otlp:
+    tracing:
+      endpoint: http://tempo:4318/v1/traces
+      export:
+        enabled: true
+  
+# Spring application settings
+spring:
+  application:
+    name: neobank-gateway
+  
+  # OTLP tracing export
+  otlp:
+    tracing:
+      endpoint: http://tempo:4318/v1/traces
+
+# Server configuration
+server:
+  port: 8081

@@ -78,4 +78,61 @@ export const loansApi = {
   },
 };
 
+export interface PendingAuthorization {
+  id: string;
+  actionType: 'HIGH_VALUE_TRANSFER' | 'ACCOUNT_DELETION' | 'LIMIT_INCREASE' | 'USER_SUSPENSION';
+  initiatorId: string;
+  initiatorRole: string;
+  targetId: string;
+  amount: number;
+  currency: string;
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+  createdAt: string;
+  reviewerId?: string;
+  reviewerRole?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
+}
+
+export const approvalsApi = {
+  getPending: async (): Promise<PendingAuthorization[]> => {
+    const response = await api.get('/api/approvals/pending');
+    return response.data;
+  },
+
+  getPendingCount: async (): Promise<{ count: number }> => {
+    const response = await api.get('/api/approvals/pending/count');
+    return response.data;
+  },
+
+  approve: async (authorizationId: string, notes?: string) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    // Decode token to get user info (in production, get from context)
+    const response = await api.post(`/api/approvals/${authorizationId}/approve`, 
+      notes ? { notes } : {},
+      {
+        headers: {
+          'X-User-Id': 'current-user-id',
+          'X-User-Role': 'MANAGER'
+        }
+      }
+    );
+    return response.data;
+  },
+
+  reject: async (authorizationId: string, notes?: string) => {
+    const response = await api.post(`/api/approvals/${authorizationId}/reject`,
+      notes ? { notes } : {},
+      {
+        headers: {
+          'X-User-Id': 'current-user-id',
+          'X-User-Role': 'MANAGER'
+        }
+      }
+    );
+    return response.data;
+  },
+};
+
 export default api;

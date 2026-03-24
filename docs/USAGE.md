@@ -1,18 +1,26 @@
-# NeoBank Usage Guide
+# NeoBank Operational Manual
 
-Your complete guide to using NeoBank's banking features.
+Your complete guide to operating NeoBank's banking platform.
 
 ---
 
 ## Table of Contents
 
+### For Customers
 1. [Onboarding](#onboarding) - Register and get your account
 2. [User Status & Approval Workflow](#user-status--approval-workflow) - Account lifecycle
-3. [Staff-Led Onboarding](#staff-led-onboarding) - Creating staff accounts
-4. [User Roles & Access Control](#user-roles--access-control) - RBAC explained
-5. [Credit Scoring](#credit-scoring) - Understand your credit score
-6. [Loan Lifecycle](#loan-lifecycle) - Apply, approve, and receive loans
-7. [Security](#security) - JWT authentication and API access
+3. [Credit Scoring](#credit-scoring) - Understand your credit score
+4. [Loan Lifecycle](#loan-lifecycle) - Apply, approve, and receive loans
+
+### For Staff (Tellers, Managers, ROs)
+5. [How to Approve a User](#how-to-approve-a-user) - KYC approval workflow
+6. [How to Clear the Maker-Checker Queue](#how-to-clear-the-maker-checker-queue) - High-value transfer approvals
+7. [Credit Management](#credit-management) - Adjust credit scores for customers
+
+### For Administrators
+8. [How to Read the BI Dashboard](#how-to-read-the-bi-dashboard) - Analytics and reporting
+9. [Security](#security) - JWT authentication and API access
+10. [System Monitoring](#system-monitoring) - Health checks and alerts
 
 ---
 
@@ -448,6 +456,152 @@ curl http://localhost:8080/api/loans/loan-123-abc \
 
 ---
 
+## How to Approve a User
+
+Managers and Relationship Officers can approve pending user registrations through the Staff Portal.
+
+### Via Staff Portal
+
+1. Login to http://localhost:3001 with your MANAGER or RELATIONSHIP_OFFICER credentials
+2. Navigate to the **KYC Approvals** tab
+3. Find the pending user in the list
+4. Click **Approve** to activate their account
+
+### Via API
+
+```bash
+curl -X PUT http://localhost:8080/api/onboarding/users/{userId}/approve \
+  -H "Authorization: Bearer MANAGER_JWT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "userId": "user-uuid",
+  "status": "ACTIVE",
+  "approvedBy": "manager-uuid",
+  "approvedAt": "2024-01-15T10:30:00Z"
+}
+```
+
+---
+
+## How to Clear the Maker-Checker Queue
+
+The Maker-Checker protocol requires Manager approval for high-value transfers (>$5,000).
+
+### Understanding the Queue
+
+- **Maker**: A TELLER initiates a high-value transfer
+- **Checker**: A MANAGER must approve before the transfer executes
+- Transfers remain in `PENDING_AUTH` status until approved or rejected
+
+### Via Staff Portal
+
+1. Login to http://localhost:3001 with MANAGER credentials
+2. Navigate to the **Maker-Checker Queue** tab (or /dashboard/approvals)
+3. Review pending authorizations:
+   - View transfer amount and reason
+   - Check initiator details
+4. Click **Review** on a pending authorization
+5. Add optional review notes
+6. Click **Approve** to execute the transfer or **Reject** to cancel
+
+### Via API
+
+**Get pending authorizations:**
+```bash
+curl http://localhost:8080/api/approvals/pending \
+  -H "Authorization: Bearer MANAGER_JWT_TOKEN"
+```
+
+**Approve an authorization:**
+```bash
+curl -X POST http://localhost:8080/api/approvals/{authorizationId}/approve \
+  -H "Authorization: Bearer MANAGER_JWT_TOKEN" \
+  -H "X-User-Id: manager-uuid" \
+  -H "X-User-Role: MANAGER" \
+  -d '{"notes": "Verified with customer"}'
+```
+
+**Reject an authorization:**
+```bash
+curl -X POST http://localhost:8080/api/approvals/{authorizationId}/reject \
+  -H "Authorization: Bearer MANAGER_JWT_TOKEN" \
+  -H "X-User-Id: manager-uuid" \
+  -H "X-User-Role: MANAGER" \
+  -d '{"notes": "Insufficient documentation"}'
+```
+
+---
+
+## Credit Management
+
+Relationship Officers can adjust customer credit scores with documented reasons.
+
+### Via Staff Portal
+
+1. Login to http://localhost:3001 with RELATIONSHIP_OFFICER credentials
+2. Navigate to **Credit Management** (/dashboard/credit)
+3. Search for a customer by username
+4. Click **Manage** to view their credit profile
+5. Review:
+   - Current credit score and risk level
+   - DTI ratio, employment history, income
+   - Recent transaction history
+6. Enter new score (300-850) and adjustment reason
+7. Click **Update Credit Score**
+
+### Credit Score Ranges
+
+| Range | Risk Level | Color |
+|-------|------------|-------|
+| 700-850 | Low Risk | 🟢 Green |
+| 600-699 | Medium Risk | 🟡 Yellow |
+| 300-599 | High Risk | 🔴 Red |
+
+---
+
+## How to Read the BI Dashboard
+
+The BI Dashboard (admin-console) provides real-time analytics from the `schema_analytics` database.
+
+### Accessing the Dashboard
+
+1. Login to http://localhost:3002 with SYSTEM_ADMIN credentials
+2. Navigate to **BI Dashboard** (/dashboard/bi)
+
+### Dashboard Widgets
+
+#### Summary Cards
+- **Total Transactions**: Sum of all transfer volumes
+- **Active Users**: Count of ACTIVE status users
+- **Pending Approvals**: Maker-Checker queue count
+- **Avg Credit Score**: Platform-wide average
+
+#### Transaction Volume Trend (Line Chart)
+- Shows daily/monthly money flow
+- Purple line: Transaction volume ($)
+- Green line: Transaction count
+
+#### Risk Distribution (Pie Chart)
+- 🟢 Low Risk (700+): Healthy credit profiles
+- 🟡 Medium Risk (600-699): Average credit
+- 🔴 High Risk (<600): Requires monitoring
+
+#### KYC Funnel (Bar Chart)
+- Registered → Pending Review → Approved → Rejected
+- Shows onboarding conversion rates
+
+### Data Source
+
+Data is populated from the Analytics module which listens to:
+- `MoneyTransferredEvent` - For transaction history
+- `UserCreatedEvent` - For user registration metrics
+- Loan events - For credit analytics
+
+---
+
 ## Security
 
 ### JWT Authentication
@@ -570,6 +724,142 @@ curl http://localhost:8080/api/accounts \
 | `400` | Bad Request | Verify request body format |
 | `404` | Not Found | Check resource ID |
 | `500` | Server Error | Contact support |
+
+---
+
+## Observability
+
+NeoBank includes a comprehensive observability stack for monitoring, tracing, and debugging.
+
+### Starting the Observability Stack
+
+```bash
+# Start all observability services
+docker-compose --profile observability up -d
+
+# View status
+docker-compose --profile observability ps
+```
+
+### Accessing Observability Tools
+
+| Tool | URL | Credentials | Purpose |
+|------|-----|-------------|---------|
+| **Grafana** | http://localhost:3000 | admin / admin123 | Dashboards & alerts |
+| **Prometheus** | http://localhost:9090 | - | Metrics queries |
+| **Tempo** | http://localhost:3200 | - | Trace search |
+| **Loki** | http://localhost:3100 | - | Log queries |
+
+### Grafana Dashboards
+
+After starting Grafana, access the pre-configured **NeoBank Operations Dashboard**:
+
+1. Navigate to http://localhost:3000
+2. Login with `admin` / `admin123`
+3. Go to Dashboards → NeoBank → NeoBank Operations Dashboard
+
+**Dashboard Panels:**
+- **System Health**: CPU, Memory, Threads per module
+- **Business Pulse**: Total liquidity, transactions, accounts, failures
+- **Request Latency**: Response time percentiles (p95, p99)
+
+### Searching for a Specific Trace
+
+When a user reports a bug, use the trace ID from error logs or response headers:
+
+**Step 1: Get the Trace ID**
+- Check response header `X-Trace-Id` from failed API calls
+- Or find it in application logs: `traceId=abc123...`
+
+**Step 2: Search in Grafana**
+1. Go to **Explore** in Grafana
+2. Select **Tempo** datasource
+3. Paste the trace ID in the search box
+4. Click **Run query**
+
+**Step 3: Analyze the Trace**
+- View the complete request flow across modules
+- Identify slow spans or errors
+- Click on spans to see detailed attributes
+
+**Step 4: Correlate with Logs**
+1. In the trace view, click **Show logs**
+2. Grafana automatically queries Loki for logs matching the trace ID
+3. Review logs from all services involved in the trace
+
+### Querying Metrics in Prometheus
+
+**Total Transactions:**
+```promql
+bank_transactions_total
+```
+
+**Transaction Rate (per second):**
+```promql
+rate(bank_transactions_total[5m])
+```
+
+**Failed Transfers:**
+```promql
+bank_transfers_failed
+```
+
+**Total Vault Liquidity:**
+```promql
+bank_vault_total_liquidity
+```
+
+**Request Latency (p99):**
+```promql
+histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket[5m])) by (le))
+```
+
+### Custom Business Metrics
+
+NeoBank exposes these custom metrics via `/actuator/prometheus`:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `bank_transactions_total` | Counter | Cumulative transaction count |
+| `bank_accounts_created` | Counter | Total accounts created |
+| `bank_transfers_failed` | Counter | Failed transfer attempts |
+| `bank_vault_total_liquidity` | Gauge | Sum of all account balances |
+| `bank_transfer_duration_seconds` | Timer | Transfer operation latency |
+
+### Setting Up Alerts
+
+**Example: High Failure Rate Alert**
+
+1. In Grafana, go to **Alerting** → **New Alert Rule**
+2. Set query: `rate(bank_transfers_failed[5m]) > 0.1`
+3. Set evaluation: Every 1 minute, for 5 minutes
+4. Configure notification channel (email, Slack, etc.)
+
+### Log Aggregation with Loki
+
+**Query recent error logs:**
+```logql
+{app="neobank"} |= "ERROR" | line_format "{{.message}}"
+```
+
+**Query logs for specific trace:**
+```logql
+{app="neobank"} |= "traceId=abc123"
+```
+
+### Troubleshooting
+
+**Grafana shows no data:**
+- Verify Prometheus is scraping targets: http://localhost:9090/targets
+- Check backend actuator endpoint: http://localhost:8080/actuator/prometheus
+
+**Traces not appearing:**
+- Verify backend has `management.tracing.sampling.probability=1.0`
+- Check Tempo is receiving data: http://localhost:3200/status
+
+**Logs not appearing:**
+- Verify Promtail is running: `docker-compose ps promtail`
+- Check Promtail configuration for correct log paths
 
 ---
 

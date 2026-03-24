@@ -98,6 +98,118 @@ services:
     networks:
       - neobank-network
 
+# =============================================================================
+# Observability Stack (Prometheus, Grafana, Tempo, Loki)
+# =============================================================================
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: neobank-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - backend
+    profiles:
+      - observability
+    networks:
+      - neobank-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: neobank-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-piechart-panel
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+    profiles:
+      - observability
+    networks:
+      - neobank-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: neobank-tempo
+    command: ['-config.file=/etc/tempo/tempo.yml']
+    ports:
+      - "3200:3200"       # Tempo UI
+      - "4317:4317"       # OTLP gRPC
+      - "4318:4318"       # OTLP HTTP
+    volumes:
+      - ./observability/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo_data:/tmp/tempo
+    profiles:
+      - observability
+    networks:
+      - neobank-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3200/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: neobank-loki
+    command: ['-config.file=/etc/loki/loki.yml']
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    profiles:
+      - observability
+    networks:
+      - neobank-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: neobank-promtail
+    command: ['-config.file=/etc/promtail/promtail.yml']
+    volumes:
+      - ./observability/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/log:/var/log:ro
+    depends_on:
+      - loki
+    profiles:
+      - observability
+    networks:
+      - neobank-network
+
 networks:
   neobank-network:
     driver: bridge
@@ -105,3 +217,7 @@ networks:
 volumes:
   postgres_data:
   ollama_data:
+  prometheus_data:
+  grafana_data:
+  tempo_data:
+  loki_data:

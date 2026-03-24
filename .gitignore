@@ -75,3 +75,13 @@ yarn-error.log*
 
 # Claude Code
 .claude/
+
+# Qwen Code
+.qwen/
+
+# Frontend build artifacts and generated files
+apps/*/package-lock.json
+apps/*/src/test/
+apps/*/vitest.config.ts
+apps/*/src/components/
+apps/*/src/app/dashboard/

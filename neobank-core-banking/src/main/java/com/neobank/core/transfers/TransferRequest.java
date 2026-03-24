@@ -11,7 +11,10 @@ public record TransferRequest(
         UUID fromId,
         UUID toId,
         BigDecimal amount,
-        String currency
+        String currency,
+        UUID initiatorId,
+        String initiatorRole,
+        String reason
 ) {
     public TransferRequest {
         if (fromId == null) {
@@ -32,6 +35,10 @@ public record TransferRequest(
     }
 
     public TransferRequest(UUID fromId, UUID toId, BigDecimal amount) {
-        this(fromId, toId, amount, "USD");
+        this(fromId, toId, amount, "USD", null, null, null);
+    }
+
+    public TransferRequest(UUID fromId, UUID toId, BigDecimal amount, String currency) {
+        this(fromId, toId, amount, currency, null, null, null);
     }
 }
