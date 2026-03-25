@@ -1634,3 +1634,239 @@ GET /actuator/retries
 - Failure rate > 40% in 5-minute window
 - Bulkhead queue > 80% capacity
 - Rate limit exceeded > 100 times/minute
+
+---
+
+## Phase 8: Chaos & Performance Validation (Week 9)
+
+**Goal:** Prove that resilience patterns (Circuit Breakers, Rate Limiters, Bulkheads) work under stress
+
+**Status:** 🔄 IN PROGRESS
+
+### 8.1 Performance Suite (k6)
+
+**Location:** `tests-performance/load-test.js`
+
+**Test Scenario:**
+- Simulates 200 concurrent users
+- Each user performs: Login → Check Balance → Transfer loop
+- Duration: 5 minutes (configurable)
+
+**Thresholds:**
+| Metric | Threshold | Purpose |
+|--------|-----------|---------|
+| P95 Latency | < 500ms | 95% of requests must be fast |
+| Failure Rate | < 1% | System must be reliable |
+| Money Flow Success | > 99% | Core banking must work |
+| Login Success | > 99% | Authentication must work |
+| Transfer Success | > 99% | Transfers must work |
+
+**Usage:**
+```bash
+cd tests-performance
+k6 run load-test.js
+
+# Custom configuration
+k6 run --vus 100 --duration 10m load-test.js
+BASE_URL=http://prod.neobank.com k6 run load-test.js
+```
+
+### 8.2 Chaos Engineering Script (chaos-monkey.sh)
+
+**Location:** `tests-performance/chaos-monkey.sh`
+
+**Behavior:**
+- Randomly selects a backend service container
+- Stops it for 30 seconds
+- Restarts it and waits for recovery
+- Repeats every 2 minutes
+
+**Excluded Services (never stopped):**
+- PostgreSQL containers
+- Redis containers
+- Observability stack (Prometheus, Grafana, Loki, Tempo)
+- Ollama (AI service)
+
+**Usage:**
+```bash
+cd tests-performance
+
+# Run continuously
+./chaos-monkey.sh
+
+# Run once
+./chaos-monkey.sh --once
+
+# Dry run (see what would happen)
+./chaos-monkey.sh --dry-run
+
+# Custom configuration
+CHAOS_INTERVAL=60 CHAOS_DURATION=60 ./chaos-monkey.sh
+```
+
+**Chaos Events Log:**
+- Events recorded to `chaos-events.jsonl`
+- Format: JSON Lines for easy parsing
+- Includes: service name, timestamp, downtime duration
+
+### 8.3 Rate Limit Validation
+
+**Location:** `tests-performance/rate-limit-test.js`
+
+**Test Scenario:**
+- Sends 20 requests per second to registration endpoint
+- Verifies Bucket4j returns 429 Too Many Requests
+- Validates rate limit headers are present
+
+**Thresholds:**
+| Metric | Threshold | Purpose |
+|--------|-----------|---------|
+| Rate Limit Triggered | > 70% | Rate limiting must work |
+| P95 Latency | < 1000ms | Even rate-limited requests should be fast |
+
+**Expected Behavior:**
+```
+First 5 requests: 200 OK or 400 Bad Request (validation)
+Requests 6+: 429 Too Many Requests
+Headers present:
+  X-RateLimit-Limit: 5
+  X-RateLimit-Remaining: 0
+  X-RateLimit-Reset: 60
+```
+
+**Usage:**
+```bash
+cd tests-performance
+k6 run rate-limit-test.js
+```
+
+### 8.4 Resilience Dashboard
+
+**Location:** `observability/grafana/dashboards/neobank-resilience.json`
+
+**Dashboard Sections:**
+
+#### 🛡️ Resilience Overview
+- Circuit Breaker States (color-coded: Green=CLOSED, Red=OPEN, Yellow=HALF_OPEN)
+- Transfer, Auth, Analytics, Lending, Cards circuit breakers
+- Failure rate percentage gauges
+
+#### 📊 Circuit Breaker Metrics
+- Failure rates over time (line chart)
+- Buffered calls over time
+- State transition annotations
+
+#### 🚦 Rate Limiting
+- Available tokens over time
+- 429 responses per minute
+- Rate limit rejections by endpoint
+
+#### 🔧 Bulkhead Metrics
+- Concurrent calls by bulkhead (critical vs non-critical)
+- Queue depth over time
+- Rejected calls count
+
+#### 📈 Retry Metrics
+- Successful vs failed retry attempts
+- Retry rate over time
+- Queued analytics events (fallback indicator)
+
+**Access:**
+```
+http://localhost:3000/d/neobank-resilience
+```
+
+### 8.5 War Room Report
+
+**Location:** `tests-performance/run-stress-test.sh`
+
+**Automated Workflow:**
+1. Starts full stack with observability (`docker-compose --profile observability up`)
+2. Starts Chaos Monkey in background
+3. Runs k6 load test
+4. Runs rate limit validation test
+5. Generates comprehensive report
+
+**Report Contents:**
+- Executive summary
+- Chaos event timeline
+- Load test results
+- Resilience assessment
+- Recommendations
+
+**Usage:**
+```bash
+cd tests-performance
+
+# Run with defaults (5m test, 120s chaos interval)
+./run-stress-test.sh
+
+# Custom configuration
+./run-stress-test.sh --duration 10m --chaos-interval 60
+
+# Keep stack running after test
+./run-stress-test.sh --no-cleanup
+```
+
+**Output:**
+```
+tests-performance/results/
+├── war-room-YYYYMMDD-HHMMSS.log
+├── war-room-report.md
+├── load-test-results.json
+├── load-test-output.log
+└── rate-limit-output.log
+```
+
+### 8.6 Benchmark Results
+
+**Test Environment:**
+| Component | Specification |
+|-----------|---------------|
+| CPU | [To be filled] |
+| Memory | [To be filled] |
+| Java Version | 25 |
+| Spring Boot | 4.0.0 |
+| PostgreSQL | 16 (Testcontainers) |
+
+**Baseline Performance (No Chaos):**
+| Metric | Value | Status |
+|--------|-------|--------|
+| P95 Latency | TBD | Target: <500ms |
+| Failure Rate | TBD | Target: <1% |
+| Money Flow Success | TBD | Target: >99% |
+| Max Concurrent Users | TBD | Target: 200+ |
+
+**Chaos Test Results:**
+| Scenario | Result | Notes |
+|----------|--------|-------|
+| Auth Service Down (30s) | TBD | Cached tokens should work |
+| Analytics Service Down | TBD | Events should queue |
+| Transfer Service Down | TBD | Circuit breaker should open |
+| Gateway Rate Limit | TBD | 429 after limit exceeded |
+
+**Resilience Validation:**
+| Pattern | Validated | Notes |
+|---------|-----------|-------|
+| Circuit Breaker | ⏳ Pending | Auto-opens on failures |
+| Retry with Backoff | ⏳ Pending | 3 attempts, 2x backoff |
+| Bulkhead Isolation | ⏳ Pending | Critical vs non-critical |
+| Rate Limiting | ⏳ Pending | Bucket4j at gateway |
+| Fallback Queue | ⏳ Pending | Analytics event queuing |
+
+### 8.7 Success Criteria
+
+Phase 8 is complete when:
+
+- [ ] Load test passes with 200 concurrent users
+- [ ] P95 latency < 500ms under normal load
+- [ ] Failure rate < 1% under normal load
+- [ ] Money flow success > 99% during chaos
+- [ ] Circuit breakers open correctly on failures
+- [ ] Rate limiting returns 429 after threshold
+- [ ] Analytics events queue during service outage
+- [ ] All services recover automatically after chaos
+- [ ] Resilience dashboard shows real-time metrics
+- [ ] War room report generated successfully
+
+---

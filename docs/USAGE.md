@@ -21,6 +21,8 @@ Your complete guide to operating NeoBank's banking platform.
 8. [How to Read the BI Dashboard](#how-to-read-the-bi-dashboard) - Analytics and reporting
 9. [Security](#security) - JWT authentication and API access
 10. [System Monitoring](#system-monitoring) - Health checks and alerts
+11. [Performance Testing](#performance-testing) - Load testing and chaos engineering
+12. [Resilience Dashboard](#resilience-dashboard) - Circuit breakers and rate limiting
 
 ---
 
@@ -963,6 +965,258 @@ NeoBank exposes these custom metrics via `/actuator/prometheus`:
 **Logs not appearing:**
 - Verify Promtail is running: `docker-compose ps promtail`
 - Check Promtail configuration for correct log paths
+
+---
+
+## Performance Testing
+
+NeoBank includes comprehensive performance testing and chaos engineering tools to validate system resilience under stress.
+
+### Prerequisites
+
+Install k6 for load testing:
+```bash
+# macOS
+brew install k6
+
+# Linux
+sudo apt-get install k6
+
+# Windows (Chocolatey)
+choco install k6
+```
+
+### Load Test (200 Concurrent Users)
+
+**Location:** `tests-performance/load-test.js`
+
+**What it tests:**
+- 200 concurrent users performing Login → Check Balance → Transfer
+- Validates P95 latency < 500ms
+- Validates failure rate < 1%
+- Validates money flow success > 99%
+
+**Run the test:**
+```bash
+cd tests-performance
+
+# Default test (5 minutes)
+k6 run load-test.js
+
+# Custom duration
+k6 run --duration 10m load-test.js
+
+# Different load profile
+k6 run --vus 100 --duration 5m load-test.js
+
+# Against production
+BASE_URL=https://api.neobank.com k6 run load-test.js
+```
+
+**Expected output:**
+```
+========================================
+   NeoBank Load Test Results
+========================================
+Total Requests: 15234
+P95 Latency: 234.56ms (threshold: 500ms)
+Failure Rate: 0.12% (threshold: 1%)
+Money Flow Success: 99.87% (threshold: 99%)
+Login Success: 99.95%
+Transfer Success: 99.89%
+----------------------------------------
+Latency Test: ✅ PASSED
+Failure Rate Test: ✅ PASSED
+Money Flow Test: ✅ PASSED
+========================================
+```
+
+### Rate Limit Validation
+
+**Location:** `tests-performance/rate-limit-test.js`
+
+**What it tests:**
+- Sends 20 requests/second to registration endpoint
+- Verifies 429 Too Many Requests after 5 requests
+- Validates X-RateLimit headers
+
+**Run the test:**
+```bash
+cd tests-performance
+k6 run rate-limit-test.js
+```
+
+**Expected behavior:**
+```
+First 5 requests: 200 OK or 400 Bad Request
+Requests 6+: 429 Too Many Requests
+
+Response headers:
+  X-RateLimit-Limit: 5
+  X-RateLimit-Remaining: 0
+  X-RateLimit-Reset: 60
+```
+
+### Chaos Monkey
+
+**Location:** `tests-performance/chaos-monkey.sh`
+
+**What it does:**
+- Randomly stops one backend service for 30 seconds
+- Restarts the service and waits for recovery
+- Repeats every 2 minutes
+- Never stops: PostgreSQL, Redis, Observability stack
+
+**Run chaos monkey:**
+```bash
+cd tests-performance
+
+# Dry run (see what would happen)
+./chaos-monkey.sh --dry-run
+
+# Run once (stop one random service)
+./chaos-monkey.sh --once
+
+# Run continuously (every 2 minutes)
+./chaos-monkey.sh
+
+# Custom configuration
+CHAOS_INTERVAL=60 CHAOS_DURATION=60 ./chaos-monkey.sh
+```
+
+**Chaos events log:**
+```bash
+# View chaos events in real-time
+tail -f chaos-events.jsonl | jq
+
+# Example output:
+# {"event":"chaos_start","service":"neobank-analytics","timestamp":"2026-03-24T10:30:00Z"}
+# {"event":"chaos_end","service":"neobank-analytics","downtime":35,"timestamp":"2026-03-24T10:30:35Z"}
+```
+
+### War Room Stress Test
+
+**Location:** `tests-performance/run-stress-test.sh`
+
+**What it does:**
+1. Starts full stack with observability
+2. Starts chaos monkey in background
+3. Runs k6 load test
+4. Runs rate limit validation
+5. Generates comprehensive report
+
+**Run the war room test:**
+```bash
+cd tests-performance
+
+# Default test (5 minutes)
+./run-stress-test.sh
+
+# Custom configuration
+./run-stress-test.sh --duration 10m --chaos-interval 60
+
+# Keep stack running after test
+./run-stress-test.sh --no-cleanup
+```
+
+**Report output:**
+```
+tests-performance/results/
+├── war-room-20260324-103000.log
+├── war-room-report.md
+├── load-test-results.json
+├── load-test-output.log
+└── rate-limit-output.log
+```
+
+---
+
+## Resilience Dashboard
+
+**Location:** Grafana → "NeoBank Resilience Dashboard"  
+**URL:** http://localhost:3000/d/neobank-resilience
+
+### Circuit Breaker States
+
+The dashboard shows real-time circuit breaker states:
+
+| Color | State | Meaning |
+|-------|-------|---------|
+| 🟢 Green | CLOSED | Normal operation, requests flowing |
+| 🔴 Red | OPEN | Circuit tripped, requests fail fast |
+| 🟡 Yellow | HALF_OPEN | Testing recovery, limited requests |
+
+**Services monitored:**
+- Transfer Service
+- Auth Service
+- Analytics Service
+- Lending Service
+- Cards Service
+
+### Rate Limiting Metrics
+
+**Key panels:**
+- **Available Tokens**: Shows remaining rate limit tokens
+- **429 Responses per Minute**: Rate limit rejections
+- **Rate Limit by Endpoint**: Which endpoints are being limited
+
+**Normal state:**
+- Available tokens: 80-100 (regenerating)
+- 429 responses: 0-5 per minute (occasional spikes)
+
+**Under attack:**
+- Available tokens: 0 (depleted)
+- 429 responses: 100+ per minute
+
+### Bulkhead Metrics
+
+**Key panels:**
+- **Concurrent Calls (Critical)**: Transfer/auth operations
+- **Concurrent Calls (Non-Critical)**: BI reports, analytics
+- **Queue Depth**: Waiting requests
+
+**Healthy state:**
+- Critical bulkhead: 10-30 concurrent
+- Non-critical bulkhead: 5-15 concurrent
+- Queue depth: 0-5
+
+**Under load:**
+- Critical bulkhead: 40-50 concurrent (near limit)
+- Non-critical bulkhead: 20 concurrent (at limit)
+- Queue depth: 20-50 (requests waiting)
+
+### Fallback Queue
+
+**Panel:** "Queued Analytics Events (Fallback)"
+
+**What it shows:**
+- Number of analytics events queued locally
+- Indicates when analytics service is unavailable
+- Events replayed when service recovers
+
+**Normal state:** 0-10 events  
+**During outage:** 100-1000+ events  
+**After recovery:** Queue drains to 0
+
+### Troubleshooting with Dashboard
+
+**Circuit breaker OPEN:**
+1. Check failure rate panel - should show spike
+2. Check logs for underlying errors
+3. Wait for automatic recovery (30s default)
+4. If persistent, restart affected service
+
+**High 429 rate:**
+1. Check which endpoint is being limited
+2. Verify rate limit configuration
+3. Check for bot/attack traffic patterns
+4. Consider adjusting limits if legitimate traffic
+
+**Bulkhead queue filling:**
+1. Check if service is overloaded
+2. Scale up service instances
+3. Review thread pool configuration
+4. Check for slow downstream dependencies
 
 ---
 
