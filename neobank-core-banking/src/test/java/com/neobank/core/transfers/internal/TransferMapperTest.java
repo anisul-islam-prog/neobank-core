@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for TransferMapper using JUnit 5.
@@ -274,33 +275,29 @@ class TransferMapperTest {
     class EdgeCasesTests {
 
         @Test
-        @DisplayName("Should handle request with zero amount")
-        void shouldHandleRequestWithZeroAmount() {
+        @DisplayName("Should throw exception for zero amount")
+        void shouldThrowExceptionForZeroAmount() {
             // Given
             UUID fromId = UUID.randomUUID();
             UUID toId = UUID.randomUUID();
-            TransferRequest request = new TransferRequest(fromId, toId, BigDecimal.ZERO);
 
-            // When
-            TransferEntity entity = transferMapper.toEntity(request);
-
-            // Then
-            assertThat(entity.getAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+            // When/Then
+            assertThatThrownBy(() -> new TransferRequest(fromId, toId, BigDecimal.ZERO))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("amount must be positive");
         }
 
         @Test
-        @DisplayName("Should handle request with negative amount")
-        void shouldHandleRequestWithNegativeAmount() {
+        @DisplayName("Should throw exception for negative amount")
+        void shouldThrowExceptionForNegativeAmount() {
             // Given
             UUID fromId = UUID.randomUUID();
             UUID toId = UUID.randomUUID();
-            TransferRequest request = new TransferRequest(fromId, toId, new BigDecimal("-100.00"));
 
-            // When
-            TransferEntity entity = transferMapper.toEntity(request);
-
-            // Then
-            assertThat(entity.getAmount()).isEqualByComparingTo(new BigDecimal("-100.00"));
+            // When/Then
+            assertThatThrownBy(() -> new TransferRequest(fromId, toId, new BigDecimal("-100.00")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("amount must be positive");
         }
 
         @Test

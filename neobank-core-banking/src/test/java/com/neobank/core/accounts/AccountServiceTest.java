@@ -58,7 +58,7 @@ class AccountServiceTest {
             entity.setOwnerName(owner);
             entity.setBalance(initialBalance);
 
-            given(accountMapper.toEntity(expectedAccount)).willReturn(entity);
+            given(accountMapper.toEntity(any(Account.class))).willReturn(entity);
             given(accountRepository.save(entity)).willReturn(entity);
             given(accountMapper.toDomain(entity)).willReturn(expectedAccount);
 
@@ -88,7 +88,7 @@ class AccountServiceTest {
             entity.setOwnerName(owner);
             entity.setBalance(initialBalance);
 
-            given(accountMapper.toEntity(expectedAccount)).willReturn(entity);
+            given(accountMapper.toEntity(any(Account.class))).willReturn(entity);
             given(accountRepository.save(entity)).willReturn(entity);
             given(accountMapper.toDomain(entity)).willReturn(expectedAccount);
 
@@ -115,7 +115,7 @@ class AccountServiceTest {
             entity.setBalance(initialBalance);
             entity.setBranchId(branchId);
 
-            given(accountMapper.toEntity(expectedAccount)).willReturn(entity);
+            given(accountMapper.toEntity(any(Account.class))).willReturn(entity);
             given(accountRepository.save(entity)).willReturn(entity);
             given(accountMapper.toDomain(entity)).willReturn(expectedAccount);
 
@@ -145,7 +145,7 @@ class AccountServiceTest {
             entity.setBalance(initialBalance);
             entity.setBranchId(null);
 
-            given(accountMapper.toEntity(expectedAccount)).willReturn(entity);
+            given(accountMapper.toEntity(any(Account.class))).willReturn(entity);
             given(accountRepository.save(entity)).willReturn(entity);
             given(accountMapper.toDomain(entity)).willReturn(expectedAccount);
 
@@ -280,7 +280,7 @@ class AccountServiceTest {
             entity.setOwnerName("John Doe");
             entity.setBalance(new BigDecimal("1500.00"));
 
-            given(accountMapper.toEntity(account)).willReturn(entity);
+            given(accountMapper.toEntity(any(Account.class))).willReturn(entity);
             given(accountRepository.save(entity)).willReturn(entity);
             given(accountMapper.toDomain(entity)).willReturn(account);
 
@@ -307,7 +307,7 @@ class AccountServiceTest {
 
             given(accountRepository.findByIdWithLock(accountId)).willReturn(Optional.of(entity));
             given(accountMapper.toDomain(entity)).willReturn(originalAccount);
-            given(accountMapper.toEntity(updatedAccount)).willReturn(entity);
+            given(accountMapper.toEntity(any(Account.class))).willReturn(entity);
             given(accountRepository.save(entity)).willReturn(entity);
             given(accountMapper.toDomain(entity)).willReturn(updatedAccount);
 
@@ -333,7 +333,7 @@ class AccountServiceTest {
 
             given(accountRepository.findByIdWithLock(accountId)).willReturn(Optional.of(entity));
             given(accountMapper.toDomain(entity)).willReturn(originalAccount);
-            given(accountMapper.toEntity(updatedAccount)).willReturn(entity);
+            given(accountMapper.toEntity(any(Account.class))).willReturn(entity);
             given(accountRepository.save(entity)).willReturn(entity);
             given(accountMapper.toDomain(entity)).willReturn(updatedAccount);
 
@@ -363,7 +363,7 @@ class AccountServiceTest {
             entity.setOwnerName(owner);
             entity.setBalance(initialBalance);
 
-            given(accountMapper.toEntity(expectedAccount)).willReturn(entity);
+            given(accountMapper.toEntity(any(Account.class))).willReturn(entity);
             given(accountRepository.save(entity)).willReturn(entity);
             given(accountMapper.toDomain(entity)).willReturn(expectedAccount);
 
@@ -388,7 +388,7 @@ class AccountServiceTest {
             entity.setOwnerName(owner);
             entity.setBalance(initialBalance);
 
-            given(accountMapper.toEntity(expectedAccount)).willReturn(entity);
+            given(accountMapper.toEntity(any(Account.class))).willReturn(entity);
             given(accountRepository.save(entity)).willReturn(entity);
             given(accountMapper.toDomain(entity)).willReturn(expectedAccount);
 
@@ -413,7 +413,7 @@ class AccountServiceTest {
             entity.setOwnerName(owner);
             entity.setBalance(initialBalance);
 
-            given(accountMapper.toEntity(expectedAccount)).willReturn(entity);
+            given(accountMapper.toEntity(any(Account.class))).willReturn(entity);
             given(accountRepository.save(entity)).willReturn(entity);
             given(accountMapper.toDomain(entity)).willReturn(expectedAccount);
 
@@ -438,7 +438,7 @@ class AccountServiceTest {
             entity.setOwnerName(owner);
             entity.setBalance(initialBalance);
 
-            given(accountMapper.toEntity(expectedAccount)).willReturn(entity);
+            given(accountMapper.toEntity(any(Account.class))).willReturn(entity);
             given(accountRepository.save(entity)).willReturn(entity);
             given(accountMapper.toDomain(entity)).willReturn(expectedAccount);
 
