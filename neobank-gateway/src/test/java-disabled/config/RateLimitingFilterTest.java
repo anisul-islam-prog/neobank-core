@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -67,7 +68,7 @@ class RateLimitingFilterTest {
         rateLimitingFilter = new RateLimitingFilter();
         responseWriter = new StringWriter();
         printWriter = new PrintWriter(responseWriter);
-        given(response.getWriter()).willReturn(printWriter);
+        Mockito.lenient().when(response.getWriter()).thenReturn(printWriter);
     }
 
     @Nested

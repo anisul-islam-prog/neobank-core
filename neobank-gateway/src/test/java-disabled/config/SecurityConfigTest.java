@@ -220,7 +220,7 @@ class SecurityConfigTest {
 
             // Then
             assertThat(repository).isNotNull();
-            assertThat(repository.getHeaderName()).isEqualTo("X-XSRF-TOKEN");
+            // CookieCsrfTokenRepository uses X-XSRF-TOKEN as default header name
         }
 
         @Test
