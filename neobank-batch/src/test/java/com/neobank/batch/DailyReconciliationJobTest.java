@@ -94,8 +94,8 @@ class DailyReconciliationJobTest {
             // When
             reconciliationJob.runDailyReconciliation();
 
-            // Then - Alert still created because implementation creates alert on any difference
-            verify(alertRepository).save(any(ReconciliationAlert.class));
+            // Then - No alert created because difference is 0 (within tolerance)
+            verify(alertRepository, never()).save(any(ReconciliationAlert.class));
         }
 
         @Test
@@ -127,13 +127,8 @@ class DailyReconciliationJobTest {
             // When
             reconciliationJob.runDailyReconciliation();
 
-            // Then
-            ArgumentCaptor<ReconciliationAlert> alertCaptor = ArgumentCaptor.forClass(ReconciliationAlert.class);
-            verify(alertRepository).save(alertCaptor.capture());
-
-            ReconciliationAlert alert = alertCaptor.getValue();
-            assertThat(alert.getExpectedBalance()).isEqualByComparingTo(BigDecimal.ZERO);
-            assertThat(alert.getActualBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+            // Then - No alert created because difference is 0 (within tolerance)
+            verify(alertRepository, never()).save(any(ReconciliationAlert.class));
         }
 
         @Test
@@ -293,12 +288,8 @@ class DailyReconciliationJobTest {
             // When
             reconciliationJob.runDailyReconciliation();
 
-            // Then
-            ArgumentCaptor<ReconciliationAlert> alertCaptor = ArgumentCaptor.forClass(ReconciliationAlert.class);
-            verify(alertRepository).save(alertCaptor.capture());
-
-            ReconciliationAlert alert = alertCaptor.getValue();
-            assertThat(alert.getExpectedBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+            // Then - No alert created because difference is 0 (within tolerance)
+            verify(alertRepository, never()).save(any(ReconciliationAlert.class));
         }
 
         @Test
@@ -383,9 +374,15 @@ class DailyReconciliationJobTest {
             // Given
             given(accountRepository.findAll()).willReturn(null);
 
-            // When/Then
-            assertThatThrownBy(() -> reconciliationJob.runDailyReconciliation())
-                    .isInstanceOf(NullPointerException.class);
+            // When - Should not throw, should create error alert
+            reconciliationJob.runDailyReconciliation();
+
+            // Then - Error alert created
+            ArgumentCaptor<ReconciliationAlert> alertCaptor = ArgumentCaptor.forClass(ReconciliationAlert.class);
+            verify(alertRepository).save(alertCaptor.capture());
+
+            ReconciliationAlert alert = alertCaptor.getValue();
+            assertThat(alert.getDetails()).contains("Reconciliation job failed");
         }
 
         @Test
