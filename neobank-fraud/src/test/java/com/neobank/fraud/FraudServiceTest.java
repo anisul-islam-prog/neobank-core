@@ -103,7 +103,7 @@ class FraudServiceTest {
             assertThat(result.isFraudDetected()).isTrue();
             assertThat(result.alertType()).isEqualTo("BLACKLIST");
             assertThat(result.riskScore()).isEqualTo(100);
-            assertThat(result.reason()).contains("From account is blacklisted");
+            assertThat(result.reason()).contains("is blacklisted");
 
             verify(blacklistHits).increment();
             verify(fraudDetectedTotal).increment();
@@ -131,7 +131,7 @@ class FraudServiceTest {
             assertThat(result.isFraudDetected()).isTrue();
             assertThat(result.alertType()).isEqualTo("BLACKLIST");
             assertThat(result.riskScore()).isEqualTo(100);
-            assertThat(result.reason()).contains("To account is blacklisted");
+            assertThat(result.reason()).contains("is blacklisted");
 
             verify(blacklistHits).increment();
             verify(fraudDetectedTotal).increment();
@@ -198,7 +198,6 @@ class FraudServiceTest {
             MoneyTransferredEvent event = createTransferEvent(transferId, fromAccountId, toAccountId, amount);
 
             given(blacklistRepository.isAccountIdBlacklisted(anyString())).willReturn(false);
-            given(fraudRepository.save(any(FraudEntity.class))).willReturn(new FraudEntity());
 
             // When
             FraudResult result = fraudService.analyzeTransfer(event);

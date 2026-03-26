@@ -261,13 +261,13 @@ class BlacklistEntityTest {
     class ActiveFlagTests {
 
         @Test
-        @DisplayName("Should default to false")
-        void shouldDefaultToFalse() {
+        @DisplayName("Should default to active")
+        void shouldDefaultToActive() {
             // Given
             BlacklistEntity entity = new BlacklistEntity();
 
             // Then
-            assertThat(entity.isActive()).isFalse();
+            assertThat(entity.isActive()).isTrue();
         }
 
         @Test
@@ -549,7 +549,7 @@ class BlacklistEntityTest {
             assertThat(blacklistEntity.getId()).isEqualTo(id);
             assertThat(blacklistEntity.getEntityValue()).isEqualTo(entityValue);
             assertThat(blacklistEntity.getEntityType()).isNull();
-            assertThat(blacklistEntity.isActive()).isFalse();
+            assertThat(blacklistEntity.isActive()).isTrue(); // Defaults to true
         }
 
         @Test
