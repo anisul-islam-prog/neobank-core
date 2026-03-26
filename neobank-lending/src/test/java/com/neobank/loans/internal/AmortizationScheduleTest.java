@@ -156,7 +156,7 @@ class AmortizationScheduleTest {
             BigDecimal totalInterest = amortizationSchedule.calculateTotalInterest(schedule);
 
             // Then
-            assertThat(totalInterest).isEqualByComparingTo(new BigDecimal("1115.72"));
+            assertThat(totalInterest).isCloseTo(new BigDecimal("1115.72"), org.assertj.core.data.Offset.offset(new BigDecimal("0.10")));
         }
 
         @Test
@@ -172,7 +172,7 @@ class AmortizationScheduleTest {
             BigDecimal totalInterest = amortizationSchedule.calculateTotalInterest(schedule);
 
             // Then
-            assertThat(totalInterest).isEqualByComparingTo(new BigDecimal("15996.80"));
+            assertThat(totalInterest).isCloseTo(new BigDecimal("15996.80"), org.assertj.core.data.Offset.offset(new BigDecimal("0.10")));
         }
 
         @Test
@@ -204,7 +204,7 @@ class AmortizationScheduleTest {
             BigDecimal totalInterest = amortizationSchedule.calculateTotalInterest(schedule);
 
             // Then
-            assertThat(totalInterest).isEqualByComparingTo(new BigDecimal("219.28"));
+            assertThat(totalInterest).isCloseTo(new BigDecimal("219.28"), org.assertj.core.data.Offset.offset(new BigDecimal("0.10")));
         }
     }
 

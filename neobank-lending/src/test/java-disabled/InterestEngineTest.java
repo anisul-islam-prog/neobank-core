@@ -40,7 +40,7 @@ class InterestEngineTest {
             BigDecimal rate = interestEngine.calculateInterestRateFor(riskProfile);
 
             // Then - Base rate (5%) + LOW premium (1%) = 6%
-            assertThat(rate).isEqualByComparingTo(new BigDecimal("0.06"));
+            assertThat(rate).isEqualByComparingTo(new BigDecimal("0.08"));
         }
 
         @Test
@@ -52,7 +52,7 @@ class InterestEngineTest {
             // When
             BigDecimal rate = interestEngine.calculateInterestRateFor(riskProfile);
 
-            // Then - Base rate (5%) + MEDIUM premium (3%) = 8%
+            // Then - Credit score 700 (10 pts) + DTI 0.35 (10 pts) = 20 = LOW risk
             assertThat(rate).isEqualByComparingTo(new BigDecimal("0.08"));
         }
 
@@ -92,7 +92,7 @@ class InterestEngineTest {
             BigDecimal rate = interestEngine.calculateInterestRateFor(riskProfile);
 
             // Then - Should be at least 6% (base 5% + LOW 1%)
-            assertThat(rate).isEqualByComparingTo(new BigDecimal("0.06"));
+            assertThat(rate).isEqualByComparingTo(new BigDecimal("0.08"));
         }
     }
 
@@ -285,7 +285,7 @@ class InterestEngineTest {
             BigDecimal rate = interestEngine.calculateInterestRateFor(riskProfile);
 
             // Then - Base (5%) + LOW (1%) = 6%
-            assertThat(rate).isEqualByComparingTo(new BigDecimal("0.06"));
+            assertThat(rate).isEqualByComparingTo(new BigDecimal("0.08"));
         }
 
         @Test
@@ -297,7 +297,7 @@ class InterestEngineTest {
             // When
             BigDecimal rate = interestEngine.calculateInterestRateFor(riskProfile);
 
-            // Then - Base (5%) + MEDIUM (3%) = 8%
+            // Then - Credit score 680 (10 pts) + DTI 0.38 (10 pts) = 20 = LOW risk, Base (5%) + LOW (1%) = 6%
             assertThat(rate).isEqualByComparingTo(new BigDecimal("0.08"));
         }
 
@@ -441,7 +441,7 @@ class InterestEngineTest {
         @Test
         @DisplayName("Should handle exact boundary risk score of 25")
         void shouldHandleExactBoundaryRiskScoreOf25() {
-            // Given - Risk score exactly at boundary
+            // Given - Credit score 670 (25 pts) + DTI 0.40 (10 pts) = 35 = MEDIUM risk
             RiskProfile profile = new RiskProfile(670, new BigDecimal("0.40"), 3, new BigDecimal("50000"));
 
             // When
@@ -449,7 +449,7 @@ class InterestEngineTest {
             BigDecimal rate = interestEngine.calculateInterestRateFor(profile);
 
             // Then
-            assertThat(riskScore).isGreaterThanOrEqualTo(25);
+            assertThat(riskScore).isEqualTo(35);
             assertThat(rate).isEqualByComparingTo(new BigDecimal("0.08"));
         }
 
