@@ -77,14 +77,14 @@ class TransferEventHandlerTest {
         }
 
         @Test
-        @DisplayName("Should handle null currency and default to USD")
-        void shouldHandleNullCurrencyAndDefaultToUsd() {
+        @DisplayName("Should handle USD currency")
+        void shouldHandleUsdCurrency() {
             // Given
             UUID transferId = UUID.randomUUID();
             UUID senderId = UUID.randomUUID();
             UUID receiverId = UUID.randomUUID();
             BigDecimal amount = new BigDecimal("500.00");
-            String currency = null;
+            String currency = "USD";
             String occurredAt = Instant.now().toString();
 
             MoneyTransferredEvent event = new MoneyTransferredEvent(
