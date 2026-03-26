@@ -133,12 +133,10 @@ class OnboardingServiceTest {
             given(userProfileRepository.existsByEmail(email)).willReturn(false);
             given(userProfileRepository.save(any(UserProfileEntity.class))).willReturn(new UserProfileEntity());
 
-            // When
-            OnboardingService.OnboardingResult result = onboardingService.registerUser(null, email, password);
-
-            // Then
-            assertThat(result.success()).isTrue();
-            verify(eventPublisher).publishEvent(any(UserAccountRequestedEvent.class));
+            // When/Then - Should throw exception for null username
+            assertThatThrownBy(() -> onboardingService.registerUser(null, email, password))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("username must not be blank");
         }
 
         @Test
