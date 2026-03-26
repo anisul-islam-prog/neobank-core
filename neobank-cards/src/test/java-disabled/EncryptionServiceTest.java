@@ -25,8 +25,8 @@ class EncryptionServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Set test encryption key (32 characters for AES-256)
-        ReflectionTestUtils.setField(encryptionService, "encryptionKey", "TestEncryptionKey32CharsLong!!");
+        // Set test encryption key (exactly 32 characters for AES-256)
+        ReflectionTestUtils.setField(encryptionService, "encryptionKey", "12345678901234567890123456789012");
     }
 
     @Nested

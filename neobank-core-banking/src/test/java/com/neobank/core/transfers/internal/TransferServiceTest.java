@@ -79,7 +79,7 @@ class TransferServiceTest {
             given(accountApi.getAccountWithLock(fromAccountId)).willReturn(fromAccount);
             given(accountApi.getAccountWithLock(toAccountId)).willReturn(toAccount);
             given(transferMapper.toEntity(request)).willReturn(transferEntity);
-            given(transferMapper.toCompletedEntity(transferEntity)).willReturn(transferEntity);
+            doNothing().when(transferMapper).toCompletedEntity(transferEntity);
             given(transferRepository.save(transferEntity)).willReturn(transferEntity);
 
             // When
@@ -178,7 +178,7 @@ class TransferServiceTest {
             given(accountApi.getAccountWithLock(fromAccountId)).willReturn(fromAccount);
             given(accountApi.getAccountWithLock(toAccountId)).willReturn(toAccount);
             given(transferMapper.toEntity(request)).willReturn(transferEntity);
-            given(transferMapper.toCompletedEntity(transferEntity)).willReturn(transferEntity);
+            doNothing().when(transferMapper).toCompletedEntity(transferEntity);
             given(transferRepository.save(transferEntity)).willReturn(transferEntity);
 
             // When
@@ -210,7 +210,7 @@ class TransferServiceTest {
             given(approvalService.requiresApproval(transferAmount)).willReturn(false);
             given(accountApi.getAccountWithLock(accountId)).willReturn(account);
             given(transferMapper.toEntity(request)).willReturn(transferEntity);
-            given(transferMapper.toCompletedEntity(transferEntity)).willReturn(transferEntity);
+            doNothing().when(transferMapper).toCompletedEntity(transferEntity);
             given(transferRepository.save(transferEntity)).willReturn(transferEntity);
 
             // When
@@ -442,7 +442,7 @@ class TransferServiceTest {
             given(accountApi.getAccountWithLock(fromAccountId)).willReturn(fromAccount);
             given(accountApi.getAccountWithLock(toAccountId)).willReturn(toAccount);
             given(transferMapper.toEntity(request)).willReturn(transferEntity);
-            given(transferMapper.toCompletedEntity(transferEntity)).willReturn(transferEntity);
+            doNothing().when(transferMapper).toCompletedEntity(transferEntity);
             given(transferRepository.save(transferEntity)).willReturn(transferEntity);
 
             // When
@@ -536,7 +536,7 @@ class TransferServiceTest {
             given(accountApi.getAccountWithLock(fromAccountId)).willReturn(fromAccount);
             given(accountApi.getAccountWithLock(toAccountId)).willReturn(toAccount);
             given(transferMapper.toEntity(request)).willReturn(transferEntity);
-            given(transferMapper.toCompletedEntity(transferEntity)).willReturn(transferEntity);
+            doNothing().when(transferMapper).toCompletedEntity(transferEntity);
             given(transferRepository.save(transferEntity)).willReturn(transferEntity);
 
             // When
@@ -593,7 +593,7 @@ class TransferServiceTest {
             given(accountApi.getAccountWithLock(fromAccountId)).willReturn(fromAccount);
             given(accountApi.getAccountWithLock(toAccountId)).willReturn(toAccount);
             given(transferMapper.toEntity(request)).willReturn(transferEntity);
-            given(transferMapper.toCompletedEntity(transferEntity)).willReturn(transferEntity);
+            doNothing().when(transferMapper).toCompletedEntity(transferEntity);
             given(transferRepository.save(transferEntity)).willReturn(transferEntity);
 
             // When
@@ -623,7 +623,7 @@ class TransferServiceTest {
             given(accountApi.getAccountWithLock(fromAccountId)).willReturn(fromAccount);
             given(accountApi.getAccountWithLock(toAccountId)).willReturn(toAccount);
             given(transferMapper.toEntity(request)).willReturn(transferEntity);
-            given(transferMapper.toCompletedEntity(transferEntity)).willReturn(transferEntity);
+            doNothing().when(transferMapper).toCompletedEntity(transferEntity);
             given(transferRepository.save(transferEntity)).willReturn(transferEntity);
 
             // When

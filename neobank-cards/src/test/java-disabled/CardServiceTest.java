@@ -75,9 +75,9 @@ class CardServiceTest {
             entity.setId(cardId);
             entity.setCardNumberMasked(maskedNumber);
 
-            given(encryptionService.encrypt(cardNumber)).willReturn(encryptedCardNumber);
-            given(encryptionService.encrypt(cvv)).willReturn(encryptedCvv);
-            given(cardMapper.toEntity(request, maskedNumber, encryptedCardNumber, encryptedCvv)).willReturn(entity);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCardNumber);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCvv);
+            given(cardMapper.toEntity(any(CardIssuanceRequest.class), any(String.class), any(String.class), any(String.class))).willReturn(entity);
             given(cardRepository.save(entity)).willReturn(entity);
 
             // When
@@ -110,9 +110,9 @@ class CardServiceTest {
             entity.setId(cardId);
             entity.setCardNumberMasked(maskedNumber);
 
-            given(encryptionService.encrypt(cardNumber)).willReturn(encryptedCardNumber);
-            given(encryptionService.encrypt(cvv)).willReturn(encryptedCvv);
-            given(cardMapper.toEntity(request, maskedNumber, encryptedCardNumber, encryptedCvv)).willReturn(entity);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCardNumber);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCvv);
+            given(cardMapper.toEntity(any(CardIssuanceRequest.class), any(String.class), any(String.class), any(String.class))).willReturn(entity);
             given(cardRepository.save(entity)).willReturn(entity);
 
             // When
@@ -132,7 +132,7 @@ class CardServiceTest {
                     accountId, CardType.VIRTUAL, new BigDecimal("5000.00"), "John Doe"
             );
 
-            given(encryptionService.encrypt(anyString())).willThrow(new RuntimeException("Encryption failed"));
+            given(encryptionService.encrypt(any(String.class))).willThrow(new RuntimeException("Encryption failed"));
 
             // When
             CardIssuanceResult result = cardService.issueCard(request);
@@ -162,7 +162,7 @@ class CardServiceTest {
             entity2.setId(UUID.randomUUID());
             entity2.setCardNumberMasked("****-****-****-2222");
 
-            given(encryptionService.encrypt(anyString())).willReturn("encrypted");
+            given(encryptionService.encrypt(any(String.class))).willReturn("encrypted");
             given(cardMapper.toEntity(any(), any(), any(), any())).willReturn(entity1, entity2);
             given(cardRepository.save(any())).willReturn(entity1, entity2);
 
@@ -234,9 +234,9 @@ class CardServiceTest {
             entity.setId(cardId);
             entity.setCardNumberMasked(maskedNumber);
 
-            given(encryptionService.encrypt(cardNumber)).willReturn(encryptedCardNumber);
-            given(encryptionService.encrypt(cvv)).willReturn(encryptedCvv);
-            given(cardMapper.toEntity(request, maskedNumber, encryptedCardNumber, encryptedCvv)).willReturn(entity);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCardNumber);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCvv);
+            given(cardMapper.toEntity(any(CardIssuanceRequest.class), any(String.class), any(String.class), any(String.class))).willReturn(entity);
             given(cardRepository.save(entity)).willReturn(entity);
 
             // When
@@ -266,9 +266,9 @@ class CardServiceTest {
             entity.setId(cardId);
             entity.setCardNumberMasked(maskedNumber);
 
-            given(encryptionService.encrypt(cardNumber)).willReturn(encryptedCardNumber);
-            given(encryptionService.encrypt(cvv)).willReturn(encryptedCvv);
-            given(cardMapper.toEntity(request, maskedNumber, encryptedCardNumber, encryptedCvv)).willReturn(entity);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCardNumber);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCvv);
+            given(cardMapper.toEntity(any(CardIssuanceRequest.class), any(String.class), any(String.class), any(String.class))).willReturn(entity);
             given(cardRepository.save(entity)).willReturn(entity);
 
             // When
@@ -298,9 +298,9 @@ class CardServiceTest {
             entity.setId(cardId);
             entity.setCardNumberMasked(maskedNumber);
 
-            given(encryptionService.encrypt(cardNumber)).willReturn(encryptedCardNumber);
-            given(encryptionService.encrypt(cvv)).willReturn(encryptedCvv);
-            given(cardMapper.toEntity(request, maskedNumber, encryptedCardNumber, encryptedCvv)).willReturn(entity);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCardNumber);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCvv);
+            given(cardMapper.toEntity(any(CardIssuanceRequest.class), any(String.class), any(String.class), any(String.class))).willReturn(entity);
             given(cardRepository.save(entity)).willReturn(entity);
 
             // When
@@ -1025,9 +1025,9 @@ class CardServiceTest {
             entity.setId(cardId);
             entity.setCardNumberMasked(maskedNumber);
 
-            given(encryptionService.encrypt(cardNumber)).willReturn(encryptedCardNumber);
-            given(encryptionService.encrypt(cvv)).willReturn(encryptedCvv);
-            given(cardMapper.toEntity(request, maskedNumber, encryptedCardNumber, encryptedCvv)).willReturn(entity);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCardNumber);
+            given(encryptionService.encrypt(any(String.class))).willReturn(encryptedCvv);
+            given(cardMapper.toEntity(any(CardIssuanceRequest.class), any(String.class), any(String.class), any(String.class))).willReturn(entity);
             given(cardRepository.save(entity)).willReturn(entity);
 
             // When
