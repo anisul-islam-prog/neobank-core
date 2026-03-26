@@ -1,6 +1,6 @@
 package com.neobank.fraud;
 
-import com.neobank.transfers.TransferCompletedEvent;
+import com.neobank.core.transfers.MoneyTransferredEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -36,11 +36,11 @@ public class FraudListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async("fraudAnalysisExecutor")
-    void onTransferCompleted(TransferCompletedEvent event) {
+    void onTransferCompleted(MoneyTransferredEvent event) {
         analyzeTransaction(event);
     }
 
-    private void analyzeTransaction(TransferCompletedEvent event) {
+    private void analyzeTransaction(MoneyTransferredEvent event) {
         String prompt = buildFraudAnalysisPrompt(event);
 
         try {
@@ -59,7 +59,7 @@ public class FraudListener {
                 log.warn("[FRAUD ALERT] Potential suspicious activity detected for Transfer {}", event.transferId());
                 log.warn("Risk Score: {}/100, Analysis: {}", riskScore, response);
             } else {
-                log.info("Fraud analysis completed for Transfer {}: Risk Score {}/100", 
+                log.info("Fraud analysis completed for Transfer {}: Risk Score {}/100",
                         event.transferId(), riskScore);
             }
         } catch (Exception e) {
@@ -67,14 +67,14 @@ public class FraudListener {
         }
     }
 
-    private String buildFraudAnalysisPrompt(TransferCompletedEvent event) {
+    private String buildFraudAnalysisPrompt(MoneyTransferredEvent event) {
         return String.format(
                 "Analyze this transaction: Account %s moved $%s to Account %s. " +
                 "Based on typical banking patterns, provide a risk score from 0-100 and a brief reason. " +
                 "Respond with only the numeric score followed by a short explanation.",
-                event.fromId(),
+                event.senderId(),
                 event.amount(),
-                event.toId()
+                event.receiverId()
         );
     }
 

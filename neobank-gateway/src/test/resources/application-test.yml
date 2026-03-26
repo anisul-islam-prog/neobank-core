@@ -1,0 +1,24 @@
+# Test configuration for Gateway module
+spring.datasource.url=jdbc:tc:postgresql:17-alpine:///gateway_test
+spring.datasource.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver
+spring.datasource.username=test
+spring.datasource.password=test
+
+# JPA/Hibernate
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+# Security
+neobank.security.cookie.max-age=3600
+neobank.security.cookie.domain=neobank.com
+
+# Logging
+logging.level.com.neobank.gateway=DEBUG
+logging.level.org.testcontainers=INFO
+logging.level.org.springframework=INFO
+logging.level.org.springframework.security=INFO
+
+# Tracing
+management.tracing.enabled=false

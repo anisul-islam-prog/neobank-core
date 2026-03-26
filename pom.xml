@@ -26,6 +26,7 @@
         <module>neobank-core-banking</module>
         <module>neobank-lending</module>
         <module>neobank-cards</module>
+        <module>neobank-fraud</module>
         <module>neobank-batch</module>
         <module>neobank-analytics</module>
     </modules>
@@ -40,6 +41,11 @@
         <micrometer-registry-prometheus.version>1.14.0</micrometer-registry-prometheus.version>
         <micrometer-tracing.version>1.5.0</micrometer-tracing.version>
         <opentelemetry.version>1.46.0</opentelemetry.version>
+        <!-- Test Dependencies Versions -->
+        <junit-jupiter.version>5.11.4</junit-jupiter.version>
+        <mockito.version>5.15.2</mockito.version>
+        <assertj.version>3.27.3</assertj.version>
+        <spring-security-test.version>7.0.0</spring-security-test.version>
     </properties>
 
     <dependencyManagement>
@@ -86,6 +92,11 @@
             <dependency>
                 <groupId>com.neobank</groupId>
                 <artifactId>neobank-cards</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.neobank</groupId>
+                <artifactId>neobank-fraud</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -156,6 +167,38 @@
                 <artifactId>liquibase-core</artifactId>
                 <version>4.29.0</version>
             </dependency>
+
+            <!-- Test Dependencies -->
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${junit-jupiter.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-junit-jupiter</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>${assertj.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.security</groupId>
+                <artifactId>spring-security-test</artifactId>
+                <version>${spring-security-test.version}</version>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -202,6 +245,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
@@ -225,6 +273,15 @@
     </repositories>
 
     <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-Dnet.bytebuddy.experimental=true --sun-misc-unsafe-memory-access=allow</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
         <pluginManagement>
             <plugins>
                 <plugin>

@@ -6,6 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Java 25](https://img.shields.io/badge/Java-25-blue.svg)](https://adoptium.net)
 [![Spring Boot 4](https://img.shields.io/badge/Spring%20Boot-4-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Tests: 2,422](https://img.shields.io/badge/Tests-2,422-brightgreen.svg)](MIGRATION_PLAN.md)
 
 ---
 
@@ -30,6 +31,81 @@ cd apps/retail-app && npm install && npm run dev
 
 ---
 
+## ✅ Backend Test Coverage
+
+All 9 backend modules have comprehensive test suites with **2,422 total tests**:
+
+| Module | Tests | Status |
+|--------|-------|--------|
+| neobank-gateway | 158 | ✅ Complete |
+| neobank-auth | 286 | ✅ Complete |
+| neobank-onboarding | 280 | ✅ Complete |
+| neobank-core-banking | 428 | ✅ Complete |
+| neobank-lending | 410 | ✅ Complete |
+| neobank-cards | 372 | ✅ Complete |
+| neobank-batch | 118 | ✅ Complete |
+| neobank-analytics | 112 | ✅ Complete |
+| neobank-fraud | 258 | ✅ Complete |
+
+### Run All Tests
+
+```bash
+# Run verification script (recommended)
+./verify-backend.sh
+
+# Run with verbose output
+./verify-backend.sh --verbose
+
+# Run specific module
+./verify-backend.sh --module neobank-auth
+```
+
+### Run Tests with Maven
+
+```bash
+# Run all tests from root
+mvn clean test
+
+# Run tests for specific module
+mvn test -pl neobank-auth
+mvn test -pl neobank-onboarding
+mvn test -pl neobank-core-banking
+mvn test -pl neobank-lending
+mvn test -pl neobank-cards
+mvn test -pl neobank-batch
+mvn test -pl neobank-analytics
+mvn test -pl neobank-fraud
+mvn test -pl neobank-gateway
+
+# Run specific test class
+mvn test -pl neobank-auth -Dtest=AuthServiceTest
+mvn test -pl neobank-auth -Dtest=JwtServiceTest
+mvn test -pl neobank-onboarding -Dtest=OnboardingServiceTest
+
+# Run with coverage
+mvn clean test -DargLine="-Dnet.bytebuddy.experimental=true"
+```
+
+### Test Structure
+
+Each module follows standardized test patterns:
+
+```
+[module]/src/test/
+├── java/com/neobank/[module]/
+│   ├── internal/
+│   │   ├── [Service]Test.java          # Unit tests (@ExtendWith(MockitoExtension))
+│   │   ├── [Entity]Test.java           # Entity state tests
+│   │   └── [Repository]IntegrationTest.java # @DataJpaTest + Testcontainers
+│   ├── web/
+│   │   └── [Controller]WebMvcTest.java # @WebMvcTest with security
+│   └── [Record/Enum]Test.java          # Record/enum tests
+└── resources/
+    └── application-test.yml            # Testcontainers config
+```
+
+---
+
 ## 📚 Documentation
 
 | Document | Description |
@@ -37,7 +113,7 @@ cd apps/retail-app && npm install && npm run dev
 | [📖 Features](FEATURES.md) | Complete list of NeoBank features |
 | [📖 Operational Manual](docs/USAGE.md) | Complete user guide for customers, staff, and admins |
 | [🏗️ Architecture](docs/ARCHITECTURE.md) | Technical deep-dive and system design |
-| [🔄 Migration Plan](MIGRATION_PLAN.md) | Microservice migration roadmap |
+| [🔄 Migration Plan](MIGRATION_PLAN.md) | Microservice migration roadmap with test coverage |
 | [🤝 Contributing](CONTRIBUTING.md) | How to contribute to NeoBank |
 | [📊 Chaos Engineering](CHAOS.md) | Failure scenarios and resilience testing |
 

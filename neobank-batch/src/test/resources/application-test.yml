@@ -1,0 +1,19 @@
+# Test configuration for Batch module
+spring.datasource.url=jdbc:tc:postgresql:17-alpine:///batch_test
+spring.datasource.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver
+spring.datasource.username=test
+spring.datasource.password=test
+
+# JPA/Hibernate
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+# Scheduling (disabled for tests)
+spring.task.scheduling.enabled=false
+
+# Logging
+logging.level.com.neobank.batch=DEBUG
+logging.level.org.testcontainers=INFO
+logging.level.org.springframework=INFO
