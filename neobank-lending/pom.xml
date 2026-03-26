@@ -16,9 +16,18 @@
     <description>Lending Module - Loans (schema_loans)</description>
 
     <dependencies>
+        <!-- Internal Dependencies -->
+        <dependency>
+            <groupId>com.neobank</groupId>
+            <artifactId>neobank-auth</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.neobank</groupId>
             <artifactId>neobank-core-banking</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.ai</groupId>
