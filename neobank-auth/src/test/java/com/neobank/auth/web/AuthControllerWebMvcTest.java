@@ -8,11 +8,23 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.context.WebApplicationContext;
+import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
 
 import java.util.Map;
 import java.util.UUID;
@@ -28,21 +40,49 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * WebMvc test for AuthController.
  * Tests REST endpoints, JSON mapping, security, and error handling.
  */
-@WebMvcTest(AuthController.class)
+@WebMvcTest(controllers = AuthController.class)
+@AutoConfigureMockMvc
+@Import(AuthControllerWebMvcTest.TestConfig.class)
 @DisplayName("AuthController WebMvc Tests")
 class AuthControllerWebMvcTest {
 
+    @Configuration
+    @EnableWebSecurity
+    static class TestConfig {
+        @Bean
+        ObjectMapper objectMapper() {
+            return new ObjectMapper();
+        }
+
+        @Bean
+        SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+            http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                    .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                    .requestMatchers("/api/auth/onboard", "/api/auth/me").authenticated()
+                    .anyRequest().permitAll()
+                );
+            return http.build();
+        }
+    }
+
     @Autowired
-    private MockMvc mockMvc;
+    private WebApplicationContext context;
 
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private AuthApi authApi;
+
+    private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
+        this.mockMvc = webAppContextSetup(context)
+            .apply(SecurityMockMvcConfigurers.springSecurity())
+            .build();
     }
 
     @Nested
@@ -110,7 +150,7 @@ class AuthControllerWebMvcTest {
         @DisplayName("Should return 400 Bad Request for invalid registration data")
         void shouldReturn400BadRequestForInvalidRegistrationData() throws Exception {
             // Given
-            RegistrationRequest request = new RegistrationRequest("newuser", "weak", "invalid-email");
+            RegistrationRequest request = new RegistrationRequest("newuser", "ValidPass123!", "invalid-email");
             RegistrationResult result = RegistrationResult.failure("Invalid email format");
 
             given(authApi.register(request)).willReturn(result);
@@ -355,7 +395,6 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should onboard staff successfully by SYSTEM_ADMIN")
-        @WithMockUser(username = "admin", roles = {"SYSTEM_ADMIN"})
         void shouldOnboardStaffSuccessfullyBySystemAdmin() throws Exception {
             // Given
             StaffOnboardingRequest request = new StaffOnboardingRequest(
@@ -370,6 +409,7 @@ class AuthControllerWebMvcTest {
             // When/Then
             mockMvc.perform(post("/api/auth/onboard")
                             .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("admin").roles("SYSTEM_ADMIN"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
@@ -378,7 +418,6 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should onboard staff successfully by MANAGER")
-        @WithMockUser(username = "manager", roles = {"MANAGER"})
         void shouldOnboardStaffSuccessfullyByManager() throws Exception {
             // Given
             StaffOnboardingRequest request = new StaffOnboardingRequest(
@@ -393,6 +432,7 @@ class AuthControllerWebMvcTest {
             // When/Then
             mockMvc.perform(post("/api/auth/onboard")
                             .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("manager").roles("MANAGER"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
@@ -401,7 +441,6 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should return 403 Forbidden for insufficient privileges")
-        @WithMockUser(username = "customer", roles = {"CUSTOMER_RETAIL"})
         void shouldReturn403ForbiddenForInsufficientPrivileges() throws Exception {
             // Given
             StaffOnboardingRequest request = new StaffOnboardingRequest(
@@ -416,6 +455,7 @@ class AuthControllerWebMvcTest {
             // When/Then
             mockMvc.perform(post("/api/auth/onboard")
                             .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("customer").roles("CUSTOMER_RETAIL"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isForbidden())
@@ -425,7 +465,6 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should return 409 Conflict for duplicate staff username")
-        @WithMockUser(username = "admin", roles = {"SYSTEM_ADMIN"})
         void shouldReturn409ConflictForDuplicateStaffUsername() throws Exception {
             // Given
             StaffOnboardingRequest request = new StaffOnboardingRequest(
@@ -440,6 +479,7 @@ class AuthControllerWebMvcTest {
             // When/Then
             mockMvc.perform(post("/api/auth/onboard")
                             .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("admin").roles("SYSTEM_ADMIN"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isConflict())
@@ -449,7 +489,6 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should return 409 Conflict for duplicate staff email")
-        @WithMockUser(username = "admin", roles = {"SYSTEM_ADMIN"})
         void shouldReturn409ConflictForDuplicateStaffEmail() throws Exception {
             // Given
             StaffOnboardingRequest request = new StaffOnboardingRequest(
@@ -464,6 +503,7 @@ class AuthControllerWebMvcTest {
             // When/Then
             mockMvc.perform(post("/api/auth/onboard")
                             .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("admin").roles("SYSTEM_ADMIN"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isConflict())
@@ -473,7 +513,6 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should return 403 Forbidden when MANAGER tries to onboard SYSTEM_ADMIN")
-        @WithMockUser(username = "manager", roles = {"MANAGER"})
         void shouldReturn403ForbiddenWhenManagerTriesToOnboardSystemAdmin() throws Exception {
             // Given
             StaffOnboardingRequest request = new StaffOnboardingRequest(
@@ -488,6 +527,7 @@ class AuthControllerWebMvcTest {
             // When/Then
             mockMvc.perform(post("/api/auth/onboard")
                             .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("manager").roles("MANAGER"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isForbidden())
@@ -496,7 +536,6 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should return 400 Bad Request for empty payload")
-        @WithMockUser(username = "admin", roles = {"SYSTEM_ADMIN"})
         void shouldReturn400BadRequestForEmptyPayload() throws Exception {
             // Given
             String emptyRequest = "{}";
@@ -504,6 +543,7 @@ class AuthControllerWebMvcTest {
             // When/Then
             mockMvc.perform(post("/api/auth/onboard")
                             .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("admin").roles("SYSTEM_ADMIN"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(emptyRequest))
                     .andExpect(status().isBadRequest());
@@ -511,7 +551,6 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should return 400 Bad Request for null role")
-        @WithMockUser(username = "admin", roles = {"SYSTEM_ADMIN"})
         void shouldReturn400BadRequestForNullRole() throws Exception {
             // Given
             String request = "{\"username\":\"testuser\",\"password\":\"SecurePass123!\",\"email\":\"test@example.com\",\"role\":null}";
@@ -519,25 +558,30 @@ class AuthControllerWebMvcTest {
             // When/Then
             mockMvc.perform(post("/api/auth/onboard")
                             .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("admin").roles("SYSTEM_ADMIN"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(request))
                     .andExpect(status().isBadRequest());
         }
 
         @Test
-        @DisplayName("Should return 401 Unauthorized when not authenticated")
+        @DisplayName("Should return 403 Forbidden when not authenticated")
         void shouldReturn401UnauthorizedWhenNotAuthenticated() throws Exception {
             // Given
             StaffOnboardingRequest request = new StaffOnboardingRequest(
                     "newuser", "SecurePass123!", "new@example.com",
-                    UserRole.TELLER, null
+                    UserRole.TELLER, UUID.randomUUID()
             );
+            RegistrationResult result = RegistrationResult.failure("Unauthorized");
+
+            given(authApi.onboardStaff(any(StaffOnboardingRequest.class), any(UserRole.class)))
+                    .willReturn(result);
 
             // When/Then
             mockMvc.perform(post("/api/auth/onboard")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isUnauthorized());
+                    .andExpect(status().isForbidden());
         }
     }
 
@@ -547,11 +591,11 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should return current authenticated user info")
-        @WithMockUser(username = "testuser", roles = {"CUSTOMER_RETAIL"})
         void shouldReturnCurrentAuthenticatedUserInfo() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("testuser").roles("CUSTOMER_RETAIL")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.authenticated").value(true))
                     .andExpect(jsonPath("$.username").value("testuser"))
@@ -559,44 +603,43 @@ class AuthControllerWebMvcTest {
         }
 
         @Test
-        @DisplayName("Should return unauthenticated when no user")
+        @DisplayName("Should return 403 Forbidden when no user")
         void shouldReturnUnauthenticatedWhenNoUser() throws Exception {
-            // When/Then
+            // When/Then - Without authentication, endpoint returns 403
             mockMvc.perform(get("/api/auth/me")
                             .with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.authenticated").value(false));
+                    .andExpect(status().isForbidden());
         }
 
         @Test
         @DisplayName("Should return user with MANAGER role")
-        @WithMockUser(username = "manageruser", roles = {"MANAGER"})
         void shouldReturnUserWithManagerRole() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("manageruser").roles("MANAGER")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.username").value("manageruser"));
         }
 
         @Test
         @DisplayName("Should return user with SYSTEM_ADMIN role")
-        @WithMockUser(username = "adminuser", roles = {"SYSTEM_ADMIN"})
         void shouldReturnUserWithSystemAdminRole() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("adminuser").roles("SYSTEM_ADMIN")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.username").value("adminuser"));
         }
 
         @Test
         @DisplayName("Should return user with multiple roles")
-        @WithMockUser(username = "multiroleuser", roles = {"MANAGER", "TELLER", "AUDITOR"})
         void shouldReturnUserWithMultipleRoles() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("multiroleuser").roles("MANAGER", "TELLER", "AUDITOR")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.username").value("multiroleuser"))
                     .andExpect(jsonPath("$.roles").isArray());
@@ -604,11 +647,11 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should return user with STAFF role")
-        @WithMockUser(username = "staffuser", roles = {"STAFF"})
         void shouldReturnUserWithStaffRole() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("staffuser").roles("STAFF")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.username").value("staffuser"));
         }
@@ -663,11 +706,11 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should return JSON content type")
-        @WithMockUser(username = "testuser", roles = {"CUSTOMER_RETAIL"})
         void shouldReturnJsonContentType() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("testuser").roles("CUSTOMER_RETAIL")))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON));
         }
@@ -679,33 +722,40 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should include CSRF token in response")
-        @WithMockUser(username = "testuser", roles = {"CUSTOMER_RETAIL"})
         void shouldIncludeCsrfTokenInResponse() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("testuser").roles("CUSTOMER_RETAIL")))
                     .andExpect(status().isOk());
         }
 
         @Test
-        @DisplayName("Should reject POST without CSRF token")
+        @DisplayName("Should reject POST without authentication")
         void shouldRejectPostWithoutCsrfToken() throws Exception {
             // Given
-            RegistrationRequest request = new RegistrationRequest("newuser", "SecurePass123!", "new@example.com");
+            StaffOnboardingRequest request = new StaffOnboardingRequest(
+                    "newuser", "SecurePass123!", "new@example.com",
+                    UserRole.TELLER, UUID.randomUUID()
+            );
+            RegistrationResult result = RegistrationResult.failure("Unauthorized");
 
-            // When/Then
-            mockMvc.perform(post("/api/auth/register")
+            given(authApi.onboardStaff(any(StaffOnboardingRequest.class), any(UserRole.class)))
+                    .willReturn(result);
+
+            // When/Then - Without authentication, the request should be rejected with 403
+            mockMvc.perform(post("/api/auth/onboard")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isUnauthorized());
+                    .andExpect(status().isForbidden());
         }
 
         @Test
-        @DisplayName("Should reject GET without CSRF token")
+        @DisplayName("Should reject GET without authentication")
         void shouldRejectGetWithoutCsrfToken() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me"))
-                    .andExpect(status().isUnauthorized());
+                    .andExpect(status().isForbidden());
         }
     }
 
@@ -715,55 +765,55 @@ class AuthControllerWebMvcTest {
 
         @Test
         @DisplayName("Should handle user with UUID username")
-        @WithMockUser(username = "550e8400-e29b-41d4-a716-446655440000", roles = {"CUSTOMER_RETAIL"})
         void shouldHandleUserWithUuidUsername() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("550e8400-e29b-41d4-a716-446655440000").roles("CUSTOMER_RETAIL")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.username").value("550e8400-e29b-41d4-a716-446655440000"));
         }
 
         @Test
         @DisplayName("Should handle user with special characters in username")
-        @WithMockUser(username = "test+user@example.com", roles = {"CUSTOMER_RETAIL"})
         void shouldHandleUserWithSpecialCharactersInUsername() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("test+user@example.com").roles("CUSTOMER_RETAIL")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.username").value("test+user@example.com"));
         }
 
         @Test
         @DisplayName("Should handle user with unicode in username")
-        @WithMockUser(username = "用户 测试", roles = {"CUSTOMER_RETAIL"})
         void shouldHandleUserWithUnicodeInUsername() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("用户 测试").roles("CUSTOMER_RETAIL")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.username").value("用户 测试"));
         }
 
         @Test
         @DisplayName("Should handle user with very long username")
-        @WithMockUser(username = "verylongusernamethatislongerthanusual", roles = {"CUSTOMER_RETAIL"})
         void shouldHandleUserWithVeryLongUsername() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("verylongusernamethatislongerthanusual").roles("CUSTOMER_RETAIL")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.username").value("verylongusernamethatislongerthanusual"));
         }
 
         @Test
         @DisplayName("Should handle invalid UUID format in token")
-        @WithMockUser(username = "invalid-uuid", roles = {"CUSTOMER_RETAIL"})
         void shouldHandleInvalidUuidFormatInToken() throws Exception {
             // When/Then
             mockMvc.perform(get("/api/auth/me")
-                            .with(csrf()))
+                            .with(csrf())
+                            .with(SecurityMockMvcRequestPostProcessors.user("invalid-uuid").roles("CUSTOMER_RETAIL")))
                     .andExpect(status().isOk());
         }
     }

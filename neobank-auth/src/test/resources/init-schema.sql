@@ -1,0 +1,1 @@
+-- No schema initialization needed - using default public schema

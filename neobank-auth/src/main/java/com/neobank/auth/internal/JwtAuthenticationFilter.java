@@ -47,6 +47,12 @@ class JwtAuthenticationFilter extends OncePerRequestFilter implements Ordered {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        // Check if authentication already exists (e.g., from @WithMockUser in tests)
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         try {
             String jwt = extractJwtFromRequest(request);
             String requestPath = request.getRequestURI();
@@ -59,9 +65,9 @@ class JwtAuthenticationFilter extends OncePerRequestFilter implements Ordered {
                 // Validate audience based on request path
                 String expectedAudience = determineExpectedAudience(requestPath);
                 if (expectedAudience != null && !jwtService.validateAudience(jwt, expectedAudience)) {
-                    log.warn("Audience mismatch: expected {}, got {} for user {} on path {}", 
+                    log.warn("Audience mismatch: expected {}, got {} for user {} on path {}",
                              expectedAudience, audience, username, requestPath);
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, 
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN,
                                        "Invalid token audience for this portal");
                     return;
                 }

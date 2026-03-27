@@ -6,8 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -76,19 +75,19 @@ public class AuthController {
     @Tag(name = "Administrative Operations", description = "Admin-only endpoints")
     @Operation(summary = "Onboard staff user", description = """
             Create a new staff user with specific role.
-            
+
             **Access Control:**
             - SYSTEM_ADMIN: Can onboard any role
             - MANAGER: Can onboard TELLER, CUSTOMER_RETAIL, CUSTOMER_BUSINESS
             - RELATIONSHIP_OFFICER: Can onboard TELLER, CUSTOMER_RETAIL, CUSTOMER_BUSINESS
-            
+
             **Note:** Staff users are created with mustChangePassword=true to force password reset on first login.
             """)
     public ResponseEntity<RegistrationResult> onboardStaff(
             @RequestBody StaffOnboardingRequest request,
-            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
-        
-        UserRole creatorRole = getUserRole(userDetails);
+            Authentication authentication) {
+
+        UserRole creatorRole = getUserRole(authentication);
         RegistrationResult result = authApi.onboardStaff(request, creatorRole);
         
         if (result.success()) {
@@ -108,29 +107,28 @@ public class AuthController {
      */
     @GetMapping("/me")
     @Operation(summary = "Get current user info", description = "Returns the authenticated user's details")
-    public ResponseEntity<Map<String, Object>> getCurrentUser(
-            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
-        
-        if (userDetails == null) {
+    public ResponseEntity<Map<String, Object>> getCurrentUser(Authentication authentication) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).body(Map.of("authenticated", false));
         }
-        
+
         return ResponseEntity.ok(Map.of(
                 "authenticated", true,
-                "username", userDetails.getUsername(),
-                "roles", userDetails.getAuthorities()
+                "username", authentication.getName(),
+                "roles", authentication.getAuthorities()
         ));
     }
 
     /**
-     * Extract user role from UserDetails.
+     * Extract user role from Authentication.
      */
-    private UserRole getUserRole(UserDetails userDetails) {
-        if (userDetails == null) {
+    private UserRole getUserRole(Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
             return UserRole.ROLE_GUEST;
         }
-        
-        return userDetails.getAuthorities().stream()
+
+        return authentication.getAuthorities().stream()
                 .findFirst()
                 .map(auth -> {
                     String roleName = auth.getAuthority();
