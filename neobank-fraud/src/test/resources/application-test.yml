@@ -1,22 +1,25 @@
 # Test configuration for Fraud module
-spring.datasource.url=jdbc:tc:postgresql:17-alpine:///fraud_test
-spring.datasource.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver
-spring.datasource.username=test
-spring.datasource.password=test
-
-# JPA/Hibernate
-spring.jpa.hibernate.ddl-auto=create-drop
-spring.jpa.show-sql=false
-spring.jpa.properties.hibernate.format_sql=true
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-
-# Schema
-spring.jpa.properties.hibernate.default_schema=schema_fraud
+spring:
+  datasource:
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: schema_fraud
 
 # AI (disabled for tests)
-spring.ai.enabled=false
+spring:
+  ai:
+    enabled: false
 
 # Logging
-logging.level.com.neobank.fraud=DEBUG
-logging.level.org.testcontainers=INFO
-logging.level.org.springframework=INFO
+logging:
+  level:
+    com.neobank.fraud: DEBUG
+    org.testcontainers: INFO
+    org.springframework: INFO
