@@ -8,7 +8,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
@@ -58,11 +60,11 @@ public class OnboardingController {
     @PutMapping("/users/{id}/approve")
     @Operation(summary = "Approve a pending user", description = "MANAGER, RELATIONSHIP_OFFICER, or SYSTEM_ADMIN only")
     public ResponseEntity<ApprovalResult> approveUser(
-            @PathVariable UUID id,
-            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+            @PathVariable UUID id) {
 
-        UUID approverId = extractUserId(userDetails);
-        UserRole approverRole = extractUserRole(userDetails);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UUID approverId = extractUserId(authentication);
+        UserRole approverRole = extractUserRole(authentication);
 
         ApprovalResult result = onboardingService.approveUser(id, approverId, approverRole);
 
@@ -79,11 +81,11 @@ public class OnboardingController {
     @Operation(summary = "Update user status", description = "MANAGER or SYSTEM_ADMIN only")
     public ResponseEntity<ApprovalResult> updateUserStatus(
             @PathVariable UUID id,
-            @RequestParam UserStatus status,
-            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+            @RequestParam UserStatus status) {
 
-        UUID updaterId = extractUserId(userDetails);
-        UserRole updaterRole = extractUserRole(userDetails);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UUID updaterId = extractUserId(authentication);
+        UserRole updaterRole = extractUserRole(authentication);
 
         ApprovalResult result = onboardingService.updateUserStatus(id, status, updaterRole);
 
@@ -98,14 +100,14 @@ public class OnboardingController {
      */
     @GetMapping("/me")
     @Operation(summary = "Get my onboarding status", description = "Returns current user's status and KYC info")
-    public ResponseEntity<Map<String, Object>> getMyStatus(
-            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<Map<String, Object>> getMyStatus() {
 
-        if (userDetails == null) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).body(Map.of("authenticated", false));
         }
 
-        UUID userId = extractUserId(userDetails);
+        UUID userId = extractUserId(authentication);
         return onboardingService.getUserProfile(userId)
                 .map(profile -> {
                     Map<String, Object> response = new java.util.HashMap<>();
@@ -119,18 +121,25 @@ public class OnboardingController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    private UUID extractUserId(UserDetails userDetails) {
-        if (userDetails == null) return UUID.randomUUID();
+    private UUID extractUserId(Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) return UUID.randomUUID();
+        Object principal = authentication.getPrincipal();
+        String username;
+        if (principal instanceof UserDetails) {
+            username = ((UserDetails) principal).getUsername();
+        } else {
+            username = principal.toString();
+        }
         try {
-            return UUID.fromString(userDetails.getUsername());
+            return UUID.fromString(username);
         } catch (IllegalArgumentException e) {
-            return UUID.nameUUIDFromBytes(userDetails.getUsername().getBytes());
+            return UUID.nameUUIDFromBytes(username.getBytes());
         }
     }
 
-    private UserRole extractUserRole(UserDetails userDetails) {
-        if (userDetails == null) return UserRole.CUSTOMER_RETAIL;
-        return userDetails.getAuthorities().stream()
+    private UserRole extractUserRole(Authentication authentication) {
+        if (authentication == null) return UserRole.CUSTOMER_RETAIL;
+        return authentication.getAuthorities().stream()
                 .findFirst()
                 .map(auth -> {
                     String roleName = auth.getAuthority();
