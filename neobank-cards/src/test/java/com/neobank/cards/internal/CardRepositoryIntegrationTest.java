@@ -7,10 +7,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -31,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @Testcontainers
 @ActiveProfiles("test")
+@Transactional
 @DisplayName("CardRepository Integration Tests")
 class CardRepositoryIntegrationTest {
 
@@ -230,9 +232,9 @@ class CardRepositoryIntegrationTest {
         void shouldFindAllCardsForAccount() {
             // Given
             UUID accountId = UUID.randomUUID();
-            createTestCardWithAccount(UUID.randomUUID(), accountId);
-            createTestCardWithAccount(UUID.randomUUID(), accountId);
-            createTestCardWithAccount(UUID.randomUUID(), accountId);
+            repository.save(createTestCardWithAccount(UUID.randomUUID(), accountId));
+            repository.save(createTestCardWithAccount(UUID.randomUUID(), accountId));
+            repository.save(createTestCardWithAccount(UUID.randomUUID(), accountId));
 
             // When
             List<CardEntity> results = repository.findByAccountId(accountId);
@@ -347,15 +349,19 @@ class CardRepositoryIntegrationTest {
             CardEntity card1 = createTestCard(id1);
             card1.setCardNumberMasked("****-****-****-0366");
             repository.save(card1);
+            entityManager.flush();
 
             UUID id2 = UUID.randomUUID();
             CardEntity card2 = createTestCard(id2);
             card2.setCardNumberMasked("****-****-****-0366");
 
-            // When/Then
+            // When/Then - Hibernate throws ConstraintViolationException which is wrapped by Spring
             org.junit.jupiter.api.Assertions.assertThrows(
-                    org.springframework.dao.DataIntegrityViolationException.class,
-                    () -> repository.save(card2)
+                    org.hibernate.exception.ConstraintViolationException.class,
+                    () -> {
+                        repository.save(card2);
+                        entityManager.flush();
+                    }
             );
         }
     }

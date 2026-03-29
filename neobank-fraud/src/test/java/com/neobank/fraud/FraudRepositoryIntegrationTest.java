@@ -5,10 +5,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -27,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @Testcontainers
 @ActiveProfiles("test")
+@Transactional
 @DisplayName("FraudRepository Integration Tests")
 class FraudRepositoryIntegrationTest {
 
@@ -222,9 +224,9 @@ class FraudRepositoryIntegrationTest {
         void shouldFindAllFraudAlertsForFromAccount() {
             // Given
             UUID fromAccountId = UUID.randomUUID();
-            createTestFraudEntityWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
-            createTestFraudEntityWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
-            createTestFraudEntityWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
+            repository.save(createTestFraudEntityWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID()));
+            repository.save(createTestFraudEntityWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID()));
+            repository.save(createTestFraudEntityWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID()));
 
             // When
             List<FraudEntity> results = repository.findByFromAccountIdOrderByCreatedAtDesc(fromAccountId);
@@ -239,8 +241,8 @@ class FraudRepositoryIntegrationTest {
         void shouldFindAllFraudAlertsForToAccount() {
             // Given
             UUID toAccountId = UUID.randomUUID();
-            createTestFraudEntityWithAccount(UUID.randomUUID(), UUID.randomUUID(), toAccountId);
-            createTestFraudEntityWithAccount(UUID.randomUUID(), UUID.randomUUID(), toAccountId);
+            repository.save(createTestFraudEntityWithAccount(UUID.randomUUID(), UUID.randomUUID(), toAccountId));
+            repository.save(createTestFraudEntityWithAccount(UUID.randomUUID(), UUID.randomUUID(), toAccountId));
 
             // When
             List<FraudEntity> results = repository.findByToAccountIdOrderByCreatedAtDesc(toAccountId);

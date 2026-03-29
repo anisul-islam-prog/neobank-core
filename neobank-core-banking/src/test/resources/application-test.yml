@@ -1,19 +1,23 @@
 # Test configuration for Core Banking module
-spring.datasource.url=jdbc:tc:postgresql:17-alpine:///core_banking_test
-spring.datasource.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver
-spring.datasource.username=test
-spring.datasource.password=test
-
-# JPA/Hibernate
-spring.jpa.hibernate.ddl-auto=create-drop
-spring.jpa.show-sql=false
-spring.jpa.properties.hibernate.format_sql=true
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-
-# Schema
-spring.jpa.properties.hibernate.default_schema=schema_core
+spring:
+  datasource:
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    initialization-mode: always
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        hbm2ddl:
+          create_namespaces: true
+        default_schema: schema_core
 
 # Logging
-logging.level.com.neobank.core=DEBUG
-logging.level.org.testcontainers=INFO
-logging.level.org.springframework=INFO
+logging:
+  level:
+    com.neobank.core: DEBUG
+    org.testcontainers: INFO
+    org.springframework: INFO

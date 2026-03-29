@@ -56,7 +56,7 @@ public interface FraudRepository extends JpaRepository<FraudEntity, UUID> {
     /**
      * Update fraud alert status.
      */
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE FraudEntity f SET f.status = :status, f.reviewedAt = CURRENT_TIMESTAMP, " +
            "f.reviewedBy = :reviewedById, f.reviewNotes = :notes WHERE f.id = :alertId")
     int updateStatus(
@@ -69,7 +69,7 @@ public interface FraudRepository extends JpaRepository<FraudEntity, UUID> {
     /**
      * Mark fraud alert as confirmed fraud.
      */
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE FraudEntity f SET f.status = 'CONFIRMED_FRAUD', f.reviewedAt = CURRENT_TIMESTAMP, " +
            "f.reviewedBy = :reviewedById WHERE f.id = :alertId")
     int confirmFraud(@Param("alertId") UUID alertId, @Param("reviewedById") UUID reviewedById);
@@ -77,7 +77,7 @@ public interface FraudRepository extends JpaRepository<FraudEntity, UUID> {
     /**
      * Mark fraud alert as false positive.
      */
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE FraudEntity f SET f.status = 'FALSE_POSITIVE', f.reviewedAt = CURRENT_TIMESTAMP, " +
            "f.reviewedBy = :reviewedById WHERE f.id = :alertId")
     int markAsFalsePositive(@Param("alertId") UUID alertId, @Param("reviewedById") UUID reviewedById);
