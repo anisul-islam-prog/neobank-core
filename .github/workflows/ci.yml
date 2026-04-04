@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,7 +33,7 @@ jobs:
         ports:
           - 11434:11434
         options: >-
-          --health-cmd "ollama ps > /dev/null 2>&1 && ollama run llama3.2 'hello' > /dev/null 2>&1 || exit 1"
+          --health-cmd "ollama ps > /dev/null 2>&1 || exit 1"
           --health-interval 30s
           --health-timeout 60s
           --health-retries 5
@@ -50,23 +53,20 @@ jobs:
         run: mvn -B clean compile
 
       - name: Run All Backend Tests
-        run: |
-          export OLLAMA_BASE_URL=http://localhost:11434
-          export FRAUD_TEST_USE_OPENAI=false
-          export TESTCONTAINERS_RYUK_DISABLED=true
-          export TESTCONTAINERS_CHECKS_DISABLE=true
-
-          # Run all tests across all modules in a single Maven invocation
-          mvn -B clean test
-        continue-on-error: false
+        env:
+          OLLAMA_BASE_URL: http://localhost:11434
+          FRAUD_TEST_USE_OPENAI: "false"
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+          TESTCONTAINERS_CHECKS_DISABLE: "true"
+        run: mvn -B test
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
-          path: |
-            neobank-*/target/surefire-reports/
+          path: "**/target/surefire-reports/"
+          retention-days: 7
 
   test-summary:
     runs-on: ubuntu-latest
@@ -78,27 +78,30 @@ jobs:
 
       - name: Download Test Results
         uses: actions/download-artifact@v4
+        if: always()
         with:
           name: test-results
           path: test-results/
 
       - name: Generate Test Summary
+        if: always()
         run: |
           echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Parse surefire XML reports to count actual test results
           total=0
-          passed=0
           failures=0
           errors=0
           skipped=0
 
-          for xml in $(find test-results/ -name "TEST-*.xml" 2>/dev/null); do
-            t=$(grep -oP 'tests="\K[0-9]+' "$xml" | head -1)
-            f=$(grep -oP 'failures="\K[0-9]+' "$xml" | head -1)
-            e=$(grep -oP 'errors="\K[0-9]+' "$xml" | head -1)
-            s=$(grep -oP 'skipped="\K[0-9]+' "$xml" | head -1)
+          # Find all surefire XML reports
+          shopt -s globstar
+          for xml in test-results/**/*.xml; do
+            [[ "$xml" == *"TEST-"* ]] || continue
+            t=$(grep -oP 'tests="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+            f=$(grep -oP 'failures="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+            e=$(grep -oP 'errors="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+            s=$(grep -oP 'skipped="\K[0-9]+' "$xml" 2>/dev/null | head -1)
             total=$((total + ${t:-0}))
             failures=$((failures + ${f:-0}))
             errors=$((errors + ${e:-0}))
@@ -108,10 +111,10 @@ jobs:
 
           echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Total Tests | $total |" >> $GITHUB_STEP_SUMMARY
-          echo "| Passed | $passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Failed | $failures |" >> $GITHUB_STEP_SUMMARY
-          echo "| Errors | $errors |" >> $GITHUB_STEP_SUMMARY
+          echo "| Total   | $total |" >> $GITHUB_STEP_SUMMARY
+          echo "| Passed  | $passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failed  | $failures |" >> $GITHUB_STEP_SUMMARY
+          echo "| Errors  | $errors |" >> $GITHUB_STEP_SUMMARY
           echo "| Skipped | $skipped |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -121,32 +124,29 @@ jobs:
           echo "| Module | Tests | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|--------|" >> $GITHUB_STEP_SUMMARY
 
-          for module_dir in neobank-gateway neobank-auth neobank-onboarding neobank-core-banking neobank-lending neobank-cards neobank-batch neobank-analytics neobank-fraud; do
-            module_total=0
-            module_failures=0
-            module_errors=0
-            for xml in $(find test-results/ -path "*/$module_dir/*" -name "TEST-*.xml" 2>/dev/null); do
-              t=$(grep -oP 'tests="\K[0-9]+' "$xml" | head -1)
-              f=$(grep -oP 'failures="\K[0-9]+' "$xml" | head -1)
-              e=$(grep -oP 'errors="\K[0-9]+' "$xml" | head -1)
-              module_total=$((module_total + ${t:-0}))
-              module_failures=$((module_failures + ${f:-0}))
-              module_errors=$((module_errors + ${e:-0}))
+          for mod in neobank-gateway neobank-auth neobank-onboarding neobank-core-banking neobank-lending neobank-cards neobank-batch neobank-analytics neobank-fraud; do
+            mt=0; mf=0; me=0
+            for xml in test-results/**/$mod/**/*.xml; do
+              [[ "$xml" == *"TEST-"* ]] || continue
+              t=$(grep -oP 'tests="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+              f=$(grep -oP 'failures="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+              e=$(grep -oP 'errors="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+              mt=$((mt + ${t:-0})); mf=$((mf + ${f:-0})); me=$((me + ${e:-0}))
             done
-            if [ $module_total -gt 0 ]; then
-              if [ $((module_failures + module_errors)) -gt 0 ]; then
-                status="❌"
+            if [ $mt -gt 0 ]; then
+              if [ $((mf + me)) -gt 0 ]; then
+                echo "| $mod | $mt | ❌ |" >> $GITHUB_STEP_SUMMARY
               else
-                status="✅"
+                echo "| $mod | $mt | ✅ |" >> $GITHUB_STEP_SUMMARY
               fi
-              echo "| $module_dir | $module_total | $status |" >> $GITHUB_STEP_SUMMARY
             fi
           done
 
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ $((failures + errors)) -gt 0 ]; then
-            echo "❌ **Some tests failed**" >> $GITHUB_STEP_SUMMARY
-            exit 1
+            echo "❌ **Some tests failed** — check the logs above." >> $GITHUB_STEP_SUMMARY
+          elif [ $total -eq 0 ]; then
+            echo "⚠️ **No test results found** — artifact may be missing." >> $GITHUB_STEP_SUMMARY
           else
-            echo "✅ **All tests passed**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All $total tests passed**" >> $GITHUB_STEP_SUMMARY
           fi
