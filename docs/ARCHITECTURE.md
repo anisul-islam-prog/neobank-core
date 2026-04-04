@@ -39,66 +39,126 @@ This document contains the technical architecture, development roadmap, and impl
 ## High-Level Architecture
 
 ```mermaid
-graph TD
-    subgraph Frontend["🖥️ Frontend Applications"]
-        direction TB
+flowchart TD
+    subgraph Clients["🖥️ Client Applications"]
+        direction LR
         Retail["🏦 Retail App<br/>Next.js :3000"]
         Staff["👨‍💼 Staff Portal<br/>Next.js :3001"]
         Admin["🎯 Admin Console<br/>Next.js :3002"]
     end
 
-    subgraph Gateway["🚪 API Gateway (Reactive)"]
+    subgraph Gateway["🚪 API Gateway — Reactive (WebFlux)"]
         direction TB
-        SCG["⚡ Spring Cloud Gateway<br/>WebFlux :8080"]
-        Security["🔒 Reactive Security<br/>SecurityWebFilterChain"]
-        RateLimit["📊 Rate Limiting<br/>Bucket4j WebFilter"]
-        Tracing["🔍 Trace Propagation<br/>Micrometer Tracing"]
+        CORS["🌐 CORS Filter"]
+        RL["📊 Rate Limiting<br/>Bucket4j WebFilter"]
+        SEC["🔒 JWT Auth<br/>SecurityWebFilterChain"]
+        SCG["⚡ Route Locator<br/>Spring Cloud Gateway"]
+        CB["🔌 Circuit Breakers<br/>Resilience4j"]
+        TRC["🔍 Trace Headers<br/>Micrometer Tracing"]
+        FB["🛟 Fallback Controller"]
     end
 
-    subgraph Modules["🔧 Backend Modules (Servlet-based)"]
-        direction TB
-        Auth["🔐 Auth :8081<br/>JWT & BCrypt"]
-        Onboarding["📋 Onboarding :8082<br/>KYC & User Status"]
-        CoreBanking["🏦 Core Banking :8083<br/>Accounts & Transfers"]
-        Lending["💰 Lending :8084<br/>Loan Origination"]
-        Cards["💳 Cards :8085<br/>Card Management"]
-        Batch["🔄 Batch<br/>EOD Reconciliation"]
-        Analytics["📈 Analytics<br/>BI & CQRS"]
-        Fraud["🔍 Fraud<br/>AI Analysis"]
+    subgraph AuthModule["🔐 Auth :8081"]
+        AuthCtrl["AuthController"]
+        JwtSvc["JwtService"]
+        AuthRepo["UserRepository"]
     end
 
-    subgraph Data["💾 Data Layer"]
-        PostgreSQL[("🐘 PostgreSQL 17<br/>7 Isolated Schemas")]
+    subgraph OnboardingModule["📋 Onboarding :8082"]
+        OnboardCtrl["OnboardingController"]
+        KycSvc["KycService"]
     end
 
-    Frontend -->|HTTPS + JWT| Gateway
-    Retail -->|/api/auth/**| Auth
-    Retail -->|/api/accounts/**| CoreBanking
-    Staff -->|/api/onboarding/**| Onboarding
-    Staff -->|/api/loans/**| Lending
-    Admin -->|/api/cards/**| Cards
-    Admin -->|/actuator/**| Gateway
+    subgraph CoreBankingModule["🏦 Core Banking :8083"]
+        AcctCtrl["AccountController"]
+        XferCtrl["TransferController"]
+        AcctSvc["AccountService"]
+        XferSvc["TransferService"]
+    end
 
-    Gateway -->|Reactive Routing| Auth
-    Gateway -->|Reactive Routing| Onboarding
-    Gateway -->|Reactive Routing| CoreBanking
-    Gateway -->|Reactive Routing| Lending
-    Gateway -->|Reactive Routing| Cards
+    subgraph LendingModule["💰 Lending :8084"]
+        LoanCtrl["LoanController"]
+        LoanSvc["LoanService"]
+    end
 
-    Auth -->|UserCreatedEvent| Onboarding
-    CoreBanking -->|MoneyTransferredEvent| Analytics
-    CoreBanking -->|MoneyTransferredEvent| Fraud
-    Lending -->|uses| CoreBanking
-    Cards -->|uses| CoreBanking
-    Batch -->|listens to| CoreBanking
+    subgraph CardsModule["💳 Cards :8085"]
+        CardCtrl["CardController"]
+        CardSvc["CardService"]
+    end
 
-    Modules -->|JDBC| PostgreSQL
+    subgraph BatchModule["🔄 Batch (scheduled)"]
+        BatchJob["DailyReconciliationJob"]
+        AlertSvc["AlertService"]
+    end
 
-    style Frontend fill:#e0f2fe,stroke:#0284c7,stroke-width:2px
-    style Gateway fill:#fef3c7,stroke:#d97706,stroke-width:2px
-    style Modules fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    style Data fill:#d1fae5,stroke:#059669,stroke-width:2px
-    style SCG fill:#fff3e0,stroke:#ef6c00,stroke-width:3px
+    subgraph AnalyticsModule["📈 Analytics (CQRS)"]
+        TransferHandler["TransferEventHandler"]
+        BiRepo["BiTransactionHistoryRepository"]
+    end
+
+    subgraph FraudModule["🔍 Fraud (async)"]
+        FraudListener["FraudListener"]
+        AiSvc["AI Fraud Analysis"]
+    end
+
+    subgraph DataLayer["💾 Data Layer — PostgreSQL 17"]
+        direction LR
+        SAuth[("schema_auth")]
+        SOnboard[("schema_onboarding")]
+        SCore[("schema_core")]
+        SLoans[("schema_loans")]
+        SCards[("schema_cards")]
+        SBatch[("schema_batch")]
+        SAnalytics[("schema_analytics")]
+    end
+
+    %% Client → Gateway
+    Clients -->|HTTPS + JWT| CORS
+
+    %% Gateway pipeline
+    CORS --> RL --> SEC --> SCG
+
+    %% Gateway → Backend routes
+    SCG -->|/api/auth/**| AuthModule
+    SCG -->|/api/onboarding/**| OnboardingModule
+    SCG -->|/api/accounts/**, /api/transfers/**| CoreBankingModule
+    SCG -->|/api/loans/**| LendingModule
+    SCG -->|/api/cards/**| CardsModule
+
+    %% Circuit breaker → fallback
+    CB -.->|on failure| FB
+
+    %% Trace propagation
+    SCG -.->|X-Trace-Id, X-Span-Id| TRC
+
+    %% Inter-module events (Spring Modulith)
+    AuthModule -->|UserCreatedEvent| OnboardingModule
+    CoreBankingModule -->|MoneyTransferredEvent| AnalyticsModule
+    CoreBankingModule -->|MoneyTransferredEvent| FraudModule
+    CoreBankingModule -->|MoneyTransferredEvent| BatchModule
+    LendingModule -.->|uses account API| CoreBankingModule
+    CardsModule -.->|uses account API| CoreBankingModule
+
+    %% Modules → Database schemas
+    AuthModule --> SAuth
+    OnboardingModule --> SOnboard
+    CoreBankingModule --> SCore
+    LendingModule --> SLoans
+    CardsModule --> SCards
+    BatchModule --> SBatch
+    AnalyticsModule --> SAnalytics
+    FraudModule --> SCore
+
+    %% Styling
+    classDef client fill:#dbeafe,stroke:#2563eb,stroke-width:2px
+    classDef gateway fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef module fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef data fill:#d1fae5,stroke:#059669,stroke-width:2px
+
+    class Retail,Staff,Admin client
+    class CORS,RL,SEC,SCG,CB,TRC,FB gateway
+    class AuthModule,OnboardingModule,CoreBankingModule,LendingModule,CardsModule,BatchModule,AnalyticsModule,FraudModule module
+    class SAuth,SOnboard,SCore,SLoans,SCards,SBatch,SAnalytics data
 ```
 
 ### Architecture Overview
