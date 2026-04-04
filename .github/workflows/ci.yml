@@ -10,7 +10,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build:
+  # ── Backend Build & Test ───────────────────────────────────────────────
+  backend:
     runs-on: ubuntu-latest
 
     services:
@@ -68,9 +69,44 @@ jobs:
           path: "**/target/surefire-reports/"
           retention-days: 7
 
+  # ── Frontend Build ─────────────────────────────────────────────────────
+  frontend:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - dir: frontend
+            name: Main Frontend
+          - dir: apps/retail-app
+            name: Retail App
+          - dir: apps/staff-portal
+            name: Staff Portal
+          - dir: apps/admin-console
+            name: Admin Console
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ${{ matrix.app.dir }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.app.dir }}
+        run: npm ci --ignore-scripts
+
+      - name: Type check & build
+        working-directory: ${{ matrix.app.dir }}
+        run: npx next build
+
+  # ── Test Summary ───────────────────────────────────────────────────────
   test-summary:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [backend, frontend]
     if: always()
 
     steps:
@@ -89,12 +125,8 @@ jobs:
           echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          total=0
-          failures=0
-          errors=0
-          skipped=0
+          total=0; failures=0; errors=0; skipped=0
 
-          # Find all surefire XML reports
           shopt -s globstar
           for xml in test-results/**/*.xml; do
             [[ "$xml" == *"TEST-"* ]] || continue
@@ -118,7 +150,6 @@ jobs:
           echo "| Skipped | $skipped |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Per-module breakdown
           echo "### Per-Module Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Module | Tests | Status |" >> $GITHUB_STEP_SUMMARY

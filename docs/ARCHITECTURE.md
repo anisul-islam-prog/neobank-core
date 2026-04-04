@@ -266,12 +266,28 @@ Request → CORS Check → Rate Limit → JWT Validation → Route → Response
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Next.js | 14.2 | React framework with App Router |
-| React | 18.3 | UI component library |
-| TypeScript | 5.4 | Type safety |
+| Next.js | 16.2 | React framework with App Router, instrumentation hook |
+| React | 19.2 | UI component library |
+| TypeScript | 5.8 | Type safety |
+| Node.js | 24.14+ | Runtime environment |
 | Tailwind CSS | 3.4 | Utility-first CSS framework |
+| OpenTelemetry API | 1.9 | Frontend trace instrumentation |
 | js-cookie | 3.0 | JWT cookie management |
-| Axios | 1.6 | HTTP client |
+| Axios | 1.9 | HTTP client |
+
+### Observability
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Micrometer | 1.16.4 | Metrics collection (Prometheus registry) |
+| Micrometer Tracing | 1.5.0 | Bridge to OpenTelemetry |
+| OpenTelemetry | 1.46.0 | Trace export via OTLP |
+| OTel Collector Contrib | 0.124.0 | Trace/metric/log routing |
+| Prometheus | 3.3.0 | Metrics scraping and storage |
+| Grafana | 12.0.0 | Unified dashboards |
+| Tempo | 2.7.1 | Distributed trace storage |
+| Loki | 3.4.0 | Log aggregation |
+| Promtail | 3.4.0 | Log shipper to Loki |
 
 ---
 
@@ -586,6 +602,24 @@ Spring Modulith enforces that modules only communicate through their public APIs
 
 ## Observability
 
+### LGT Monitoring Stack
+
+NeoBank uses the **LGT stack** (Loki, Grafana, Tempo) with an OpenTelemetry Collector for full observability.
+
+```bash
+# Start the monitoring stack
+docker compose -f docker-compose-monitoring.yml up -d
+```
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| OTel Collector | 4317/4318 | Receives traces from Spring Boot & Next.js |
+| Prometheus | 9090 | Metrics scraping from all modules |
+| Grafana | 3003 | Unified dashboards (admin/admin123) |
+| Tempo | 3200 | Distributed trace storage |
+| Loki | 3100 | Log aggregation |
+| Promtail | — | Log shipper to Loki |
+
 ### Metrics
 
 Micrometer with Prometheus registry tracks:
@@ -602,10 +636,10 @@ Access metrics at: `http://localhost:8080/actuator/prometheus`
 
 ### Tracing
 
-- Micrometer tracing enabled for all gateway requests
-- Trace headers propagated to downstream services: `X-Trace-Id`, `X-Span-Id`, `X-Sampled`
-- Token counts tracked per AI transaction
-- Configurable observation include/exclude settings
+- All modules export traces via OTLP to `http://otel-collector:4318/v1/traces`
+- 100% sampling rate (`management.tracing.sampling.probability=1.0`)
+- Trace headers propagated: `X-Trace-Id`, `X-Span-Id`, `X-Sampled`
+- Frontend (Next.js 16) instruments via `src/instrumentation.ts` with OpenTelemetry NodeSDK
 
 ### Actuator Endpoints
 
@@ -713,6 +747,8 @@ We have exciting plans for NeoBank Core! Here's what's coming:
 - [x] **Reactive Gateway**: Spring Cloud Gateway with WebFlux
 - [x] **Circuit Breakers**: Per-route resilience with fallback endpoints
 - [x] **Rate Limiting**: Reactive Bucket4j with user/IP-based limits
+- [x] **Observability Stack**: LGT (Loki, Grafana, Tempo) + OTel Collector
+- [x] **Frontend Tracing**: Next.js 16 OpenTelemetry instrumentation hook
 - [ ] **Kubernetes Deployment**: Helm charts for cloud-native deployment
 - [ ] **Event Sourcing**: Full audit trail with event replay capability
 - [ ] **GraphQL API**: Alternative query layer for flexible data fetching

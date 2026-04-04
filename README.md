@@ -254,12 +254,10 @@ mvn test -pl neobank-gateway -Dtest=CookieSecurityConfigTest
 
 ### Continuous Integration
 
-Our CI pipeline runs on every push and PR:
-- ✅ Java 25 build
-- ✅ Unit and integration tests
-- ✅ Architecture documentation generation
-- ✅ Modulith boundary verification
-- ✅ Testcontainers for database tests
+Our CI pipeline runs on every push and PR with parallel jobs:
+- ✅ **Backend**: Java 25 build + all module tests (JUnit 6 + Testcontainers)
+- ✅ **Frontend**: Node.js 24 build for all 4 apps (Next.js 16 + TypeScript 5.8)
+- ✅ **Test Summary**: Auto-generated per-module results in GitHub Actions summary
 
 ---
 
@@ -279,10 +277,41 @@ Our CI pipeline runs on every push and PR:
 **Backend Modules:** Java 25 · Spring Boot 4.0.4 · Spring Modulith 1.4.0 · Spring Security 7.0.0
 **Data:** PostgreSQL 17 · Liquibase 4.29.0 · Hibernate 7.2 · JPA
 **Resilience:** Resilience4j 2.3.0 · Bucket4j 8.6.0
-**Frontend:** Next.js 14 · React · TypeScript · Tailwind CSS · Recharts
+**Frontend:** Next.js 16 · React 19 · TypeScript 5.8 · Node.js 24 · Tailwind CSS · Recharts
 **AI:** Spring AI 2.0.0-M1 · Ollama (local) · OpenAI (cloud)
 **Testing:** JUnit 6.0.0 · Testcontainers 2.0.4 · Mockito 5.15.2 · AssertJ 3.27.3
-**Observability:** Micrometer 1.16.4 · Prometheus · Grafana · OpenTelemetry 1.46.0
+**Observability:** Micrometer 1.16.4 · OpenTelemetry 1.46.0 · Prometheus 3.3 · Grafana 12 · Tempo 2.7 · Loki 3.4
+
+---
+
+## 📊 Observability & Monitoring
+
+NeoBank includes a full LGT (Loki, Grafana, Tempo) monitoring stack with OpenTelemetry Collector.
+
+### Start Monitoring
+
+```bash
+# Start the monitoring stack
+docker compose -f docker-compose-monitoring.yml up -d
+```
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Grafana | http://localhost:3003 | Dashboards (admin/admin123) |
+| Prometheus | http://localhost:9090 | Metrics scraping |
+| Tempo | http://localhost:3200 | Distributed trace storage |
+| Loki | http://localhost:3100 | Log aggregation |
+| OTel Collector | :4317 / :4318 | Receives traces from backend & frontend |
+
+### Production Health Monitoring
+
+```bash
+# One-time health check of all services
+./scripts/monitor-services.sh
+
+# Continuous monitoring every 30 seconds
+./scripts/monitor-services.sh --watch 30
+```
 
 ---
 
