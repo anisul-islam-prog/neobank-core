@@ -4,29 +4,32 @@
 
 This document documents failure scenarios and expected system behavior when components fail. Use this guide for chaos engineering tests, incident response, and system resilience validation.
 
+**Last Updated:** 2026-04-04 (Spring Cloud Gateway Migration)
+
 ---
 
 ## Failure Scenarios Matrix
 
 | Scenario | Impact | Mitigation | Recovery Time | Severity |
 |----------|--------|------------|---------------|----------|
-| Auth Database Offline | Login failures, new users blocked | Circuit breaker opens, cached tokens valid | 30s auto | Critical |
-| Analytics Module Down | No BI data, transfers succeed | Events queued locally | Immediate | Low |
-| Transfer Service Slow | Payment delays | Retry with backoff, bulkhead isolation | 5-10s | High |
-| Rate Limit Exceeded | 429 errors for user | Exponential backoff on client | 1 minute | Medium |
+| Auth Service Offline | Login failures, new users blocked | Gateway circuit breaker opens, cached tokens valid | 30s auto | Critical |
+| Core Banking Service Down | Transfers/accounts unavailable | Gateway circuit breaker + fallback endpoint | 30s auto | Critical |
+| Analytics Module Down | No BI data, transfers succeed | Events queued via Modulith event registry | Immediate | Low |
+| Gateway Rate Limit Exceeded | 429 errors for user | Exponential backoff on client | 1 minute | Medium |
+| Lending Service Slow | Loan operation delays | Gateway retry (2x) + circuit breaker | 5-10s | High |
 | Thread Pool Exhaustion | Non-critical ops blocked | Bulkhead rejects low-priority | Immediate | Medium |
 
 ---
 
-## Scenario 1: Auth Database Goes Offline
+## Scenario 1: Auth Service Goes Offline
 
 ### What Happens
 
 **Immediate Impact (0-5 seconds):**
-- New login attempts fail with 500 error
-- JWT token validation continues (tokens cached in memory)
+- New login attempts fail with 500 error from auth service
+- JWT token validation continues (tokens validated at gateway level)
 - Existing sessions remain active
-- Circuit breaker starts counting failures
+- Gateway circuit breaker starts counting failures
 
 **Circuit Breaker Activation (5-30 seconds):**
 - After 5 failures in 10-second window, circuit opens
@@ -46,14 +49,14 @@ This document documents failure scenarios and expected system behavior when comp
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Auth Database Failure                     │
+│                  Auth Service Failure                        │
 ├─────────────────────────────────────────────────────────────┤
 │ Time    │ State      │ User Impact          │ System Action │
 ├─────────────────────────────────────────────────────────────┤
-│ T+0s    │ DB Down    │ Login fails          │ Retry x3      │
+│ T+0s    │ Auth Down  │ Login fails          │ Retry x2      │
 │ T+5s    │ Failures=5 │ Login fails          │ Circuit OPEN  │
 │ T+5-35s │ OPEN       │ 503 on login         │ Fallback      │
-│ T+35s   │ HALF_OPEN  │ Test request         │ Probe DB      │
+│ T+35s   │ HALF_OPEN  │ Test request         │ Probe Auth    │
 │ T+36s   │ CLOSED     │ Login succeeds       │ Normal ops    │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -61,23 +64,28 @@ This document documents failure scenarios and expected system behavior when comp
 ### How to Test
 
 ```bash
-# 1. Simulate auth database failure
-docker compose exec neobank-auth psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'neobank';"
+# 1. Simulate auth service failure
+docker stop neobank-auth
 
 # 2. Attempt login (should fail initially)
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"test","password":"wrong"}'
 
-# Expected: 503 after 5 attempts
+# Expected: 503 after retry attempts exhausted
 
-# 3. Check circuit breaker status
-curl http://localhost:8080/actuator/circuitbreakers/auth
+# 3. Check circuit breaker status via gateway actuator
+curl http://localhost:8080/actuator/circuitbreakers
 
-# Expected: state=OPEN
+# Expected: auth circuit state=OPEN
 
-# 4. Restore database
-docker compose restart neobank-auth
+# 4. Restore auth service
+docker start neobank-auth
+
+# 5. Verify circuit closes after recovery
+curl http://localhost:8080/actuator/circuitbreakers
+# Expected: auth circuit state=CLOSED
+```
 
 # 5. Wait for recovery (30s)
 # 6. Verify circuit closed

@@ -4,26 +4,28 @@
 
 This document outlines the migration strategy for transitioning NeoBank from a single-module monolith to a **Microservice-Ready Modular Monolith** architecture. This refactor enables future extraction of independent microservices while maintaining a single deployable unit.
 
-**Status: Backend Structure Standardized & Fully Tested** ✅
+**Status: All Modules Migrated to Spring Boot 4.0.4** ✅
+
+**Latest Update: Gateway migrated to Reactive Spring Cloud Gateway** ✅
 
 ---
 
 ## Test Coverage Summary
 
-All backend modules now have comprehensive test suites following standardized patterns:
+All backend modules have comprehensive test suites:
 
-| Module | Unit Tests | WebMvc Tests | Integration Tests | Total Tests | Status |
-|--------|------------|--------------|-------------------|-------------|--------|
-| **neobank-gateway** | 158 | - | - | 158 | ✅ Complete |
-| **neobank-auth** | 206 | 52 | 28 | 286 | ✅ Complete |
-| **neobank-onboarding** | 210 | 38 | 32 | 280 | ✅ Complete |
-| **neobank-core-banking** | 358 | 48 | 22 | 428 | ✅ Complete |
-| **neobank-lending** | 386 | 24 | - | 410 | ✅ Complete |
-| **neobank-cards** | 308 | 32 | 32 | 372 | ✅ Complete |
-| **neobank-batch** | 90 | - | 28 | 118 | ✅ Complete |
-| **neobank-analytics** | 84 | - | 28 | 112 | ✅ Complete |
-| **neobank-fraud** | 202 | - | 56 | 258 | ✅ Complete |
-| **TOTAL** | **2,002** | **194** | **226** | **2,422** | ✅ **100%** |
+| Module | Unit Tests | Web Tests | Integration Tests | Total Tests | Status | Architecture |
+|--------|------------|-----------|-------------------|-------------|--------|--------------|
+| **neobank-gateway** | 50 | 14 | - | 64 | ✅ Complete | Reactive WebFlux + Spring Cloud Gateway |
+| **neobank-auth** | 206 | 52 | 28 | 286 | ✅ Complete | Servlet-based Spring Modulith |
+| **neobank-onboarding** | 210 | 38 | 32 | 280 | ✅ Complete | Servlet-based Spring Modulith |
+| **neobank-core-banking** | 358 | 48 | 22 | 428 | ✅ Complete | Servlet-based Spring Modulith |
+| **neobank-lending** | 386 | 24 | - | 410 | ✅ Complete | Servlet-based Spring Modulith |
+| **neobank-cards** | 308 | 32 | 32 | 372 | ✅ Complete | Servlet-based Spring Modulith |
+| **neobank-batch** | 90 | - | 8 | 98 | ✅ Complete | Servlet-based Spring Modulith |
+| **neobank-analytics** | 75 | - | - | 75 | ✅ Complete | Servlet-based Spring Modulith |
+| **neobank-fraud** | 202 | - | 56 | 258 | ✅ Complete | Servlet-based Spring Modulith |
+| **TOTAL** | **1,885** | **208** | **178** | **2,271** | ✅ **100%** | Hybrid (Reactive + Servlet) |
 
 ### Test Patterns (Standardized)
 
@@ -59,7 +61,7 @@ Run all backend tests with summary:
 ```
 neobank-parent/ (multi-module Maven)
 │
-├── neobank-gateway/           # Single entry point, routing, Swagger protection ✅ TESTED
+├── neobank-gateway/           # Reactive API Gateway (Spring Cloud Gateway + WebFlux) ✅ TESTED
 ├── neobank-auth/              # Authentication: credentials, JWT, schema_auth ✅ TESTED
 ├── neobank-onboarding/        # Business: KYC, user status, schema_onboarding ✅ TESTED
 ├── neobank-core-banking/      # Accounts, transfers, branches (schema_core) ✅ TESTED
@@ -68,6 +70,25 @@ neobank-parent/ (multi-module Maven)
 ├── neobank-batch/             # Batch processing: EOD reconciliation ✅ TESTED
 ├── neobank-analytics/         # CQRS: Read-optimized BI tables ✅ TESTED
 └── neobank-fraud/             # Fraud detection: velocity, blacklist, patterns ✅ TESTED
+```
+
+### Gateway Architecture (Reactive Proxy)
+```
+neobank-gateway/
+├── config/
+│   ├── SecurityConfig.java           # SecurityWebFilterChain (reactive)
+│   ├── RouteConfig.java              # Spring Cloud Gateway routes
+│   ├── RateLimitingFilter.java       # WebFilter with Bucket4j
+│   ├── TracePropagationFilter.java   # WebFilter with Micrometer Tracing
+│   └── CookieSecurityConfig.java     # Reactive cookie management
+├── controller/
+│   └── FallbackController.java       # Circuit breaker fallback
+└── src/test/java/
+    └── config/
+        ├── SecurityConfigTest.java
+        ├── RateLimitingFilterTest.java
+        ├── TracePropagationFilterTest.java
+        └── CookieSecurityConfigTest.java
 ```
 
 ### Test Structure (Standardized Across All Modules)
