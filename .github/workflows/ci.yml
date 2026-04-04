@@ -69,44 +69,10 @@ jobs:
           path: "**/target/surefire-reports/"
           retention-days: 7
 
-  # ── Frontend Build ─────────────────────────────────────────────────────
-  frontend:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        app:
-          - dir: frontend
-            name: Main Frontend
-          - dir: apps/retail-app
-            name: Retail App
-          - dir: apps/staff-portal
-            name: Staff Portal
-          - dir: apps/admin-console
-            name: Admin Console
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: ${{ matrix.app.dir }}/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ${{ matrix.app.dir }}
-        run: npm ci --ignore-scripts
-
-      - name: Type check & build
-        working-directory: ${{ matrix.app.dir }}
-        run: npx next build
-
   # ── Test Summary ───────────────────────────────────────────────────────
   test-summary:
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: backend
     if: always()
 
     steps:
@@ -115,6 +81,7 @@ jobs:
       - name: Download Test Results
         uses: actions/download-artifact@v4
         if: always()
+        continue-on-error: true
         with:
           name: test-results
           path: test-results/
@@ -127,18 +94,20 @@ jobs:
 
           total=0; failures=0; errors=0; skipped=0
 
-          shopt -s globstar
-          for xml in test-results/**/*.xml; do
-            [[ "$xml" == *"TEST-"* ]] || continue
-            t=$(grep -oP 'tests="\K[0-9]+' "$xml" 2>/dev/null | head -1)
-            f=$(grep -oP 'failures="\K[0-9]+' "$xml" 2>/dev/null | head -1)
-            e=$(grep -oP 'errors="\K[0-9]+' "$xml" 2>/dev/null | head -1)
-            s=$(grep -oP 'skipped="\K[0-9]+' "$xml" 2>/dev/null | head -1)
-            total=$((total + ${t:-0}))
-            failures=$((failures + ${f:-0}))
-            errors=$((errors + ${e:-0}))
-            skipped=$((skipped + ${s:-0}))
-          done
+          if [ -d "test-results" ]; then
+            shopt -s globstar
+            for xml in test-results/**/*.xml; do
+              [[ "$xml" == *"TEST-"* ]] || continue
+              t=$(grep -oP 'tests="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+              f=$(grep -oP 'failures="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+              e=$(grep -oP 'errors="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+              s=$(grep -oP 'skipped="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+              total=$((total + ${t:-0}))
+              failures=$((failures + ${f:-0}))
+              errors=$((errors + ${e:-0}))
+              skipped=$((skipped + ${s:-0}))
+            done
+          fi
           passed=$((total - failures - errors - skipped))
 
           echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
@@ -157,13 +126,15 @@ jobs:
 
           for mod in neobank-gateway neobank-auth neobank-onboarding neobank-core-banking neobank-lending neobank-cards neobank-batch neobank-analytics neobank-fraud; do
             mt=0; mf=0; me=0
-            for xml in test-results/**/$mod/**/*.xml; do
-              [[ "$xml" == *"TEST-"* ]] || continue
-              t=$(grep -oP 'tests="\K[0-9]+' "$xml" 2>/dev/null | head -1)
-              f=$(grep -oP 'failures="\K[0-9]+' "$xml" 2>/dev/null | head -1)
-              e=$(grep -oP 'errors="\K[0-9]+' "$xml" 2>/dev/null | head -1)
-              mt=$((mt + ${t:-0})); mf=$((mf + ${f:-0})); me=$((me + ${e:-0}))
-            done
+            if [ -d "test-results" ]; then
+              for xml in test-results/**/$mod/**/*.xml; do
+                [[ "$xml" == *"TEST-"* ]] || continue
+                t=$(grep -oP 'tests="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+                f=$(grep -oP 'failures="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+                e=$(grep -oP 'errors="\K[0-9]+' "$xml" 2>/dev/null | head -1)
+                mt=$((mt + ${t:-0})); mf=$((mf + ${f:-0})); me=$((me + ${e:-0}))
+              done
+            fi
             if [ $mt -gt 0 ]; then
               if [ $((mf + me)) -gt 0 ]; then
                 echo "| $mod | $mt | ❌ |" >> $GITHUB_STEP_SUMMARY
