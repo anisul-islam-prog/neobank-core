@@ -2,24 +2,25 @@ package com.neobank.gateway.config;
 
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
+import reactor.core.publisher.Mono;
 
-import java.io.IOException;
 import java.util.Optional;
 
 /**
- * Global filter that propagates traceId and spanId headers to downstream services
+ * Reactive global filter that propagates traceId and spanId headers to downstream services
  * and adds X-Trace-Id to response headers for client-side error reporting.
+ * 
+ * Uses Spring WebFlux's ServerWebExchange for header manipulation.
  */
 @Component
-public class TracePropagationFilter extends OncePerRequestFilter {
+public class TracePropagationFilter implements WebFilter {
 
     private static final Logger log = LoggerFactory.getLogger(TracePropagationFilter.class);
     private static final String TRACE_ID_HEADER = "X-Trace-Id";
@@ -33,33 +34,28 @@ public class TracePropagationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        return tracer.map(t -> {
+                Span currentSpan = t.currentSpan();
 
-        // Get current span from tracer if available
-        tracer.ifPresent(t -> {
-            Span currentSpan = t.currentSpan();
+                if (currentSpan != null && currentSpan.context() != null) {
+                    String traceId = currentSpan.context().traceId();
+                    String spanId = currentSpan.context().spanId();
 
-            if (currentSpan != null) {
-                String traceId = currentSpan.context().traceId();
-                String spanId = currentSpan.context().spanId();
+                    log.debug("Trace propagated - TraceId: {}, SpanId: {} for request: {}",
+                        traceId, spanId, exchange.getRequest().getURI().getPath());
 
-                // Add trace headers to response for client-side error reporting
-                response.setHeader(TRACE_ID_HEADER, traceId);
-                response.setHeader(SPAN_ID_HEADER, spanId);
-                response.setHeader(SAMPLED_HEADER, String.valueOf(currentSpan.context().sampled()));
+                    HttpHeaders headers = exchange.getResponse().getHeaders();
+                    headers.set(TRACE_ID_HEADER, traceId);
+                    headers.set(SPAN_ID_HEADER, spanId);
+                    headers.set(SAMPLED_HEADER, String.valueOf(currentSpan.context().sampled()));
 
-                // Log trace information for debugging
-                log.debug("Trace propagated - TraceId: {}, SpanId: {}", traceId, spanId);
-            } else {
-                log.debug("No active span found for request: {}", request.getRequestURI());
-            }
-        });
-
-        // Continue filter chain
-        filterChain.doFilter(request, response);
+                    return chain.filter(exchange);
+                } else {
+                    log.debug("No active span found for request: {}", exchange.getRequest().getURI().getPath());
+                    return chain.filter(exchange);
+                }
+            })
+            .orElseGet(() -> chain.filter(exchange));
     }
 }

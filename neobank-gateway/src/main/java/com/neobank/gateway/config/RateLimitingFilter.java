@@ -3,28 +3,31 @@ package com.neobank.gateway.config;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
+import reactor.core.publisher.Mono;
 
-import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * API Rate Limiting Filter using Bucket4j.
- * Implements request rate limiting at the gateway level.
- * 
+ * Reactive API Rate Limiting Filter using Bucket4j.
+ * Implements request rate limiting at the gateway level using WebFlux.
+ *
  * Rules:
  * - retail-app users: 100 requests per minute
  * - staff-portal users: 500 requests per minute
@@ -33,7 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Component
 @Order(2)
-public class RateLimitingFilter extends OncePerRequestFilter {
+public class RateLimitingFilter implements WebFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);
 
@@ -64,126 +67,166 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private final Map<String, Bucket> registrationBuckets = new ConcurrentHashMap<>();
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
-
-        String uri = request.getRequestURI();
-        String clientIp = getClientIp(request);
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        String uri = exchange.getRequest().getURI().getPath();
+        String clientIp = getClientIp(exchange);
 
         // Check if this is a registration endpoint (stricter limit)
         if (uri.contains("/api/onboarding/register") || uri.contains("/api/auth/register")) {
-            if (!tryConsume(registrationBuckets, clientIp, REGISTRATION_LIMIT, response)) {
-                log.warn("Rate limit exceeded for registration from IP: {}", clientIp);
-                response.setStatus(429);
-                response.setHeader("X-RateLimit-Limit", "5");
-                response.setHeader("X-RateLimit-Remaining", "0");
-                response.setHeader("X-RateLimit-Reset", "60");
-                response.getWriter().write("{\"error\": \"Too many registration requests. Please try again later.\"}");
-                return;
-            }
+            return handleRegistrationRateLimit(exchange, chain, clientIp);
         }
 
-        // Try to get authenticated user
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String rateLimitKey;
-        Bandwidth limit;
-
-        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof User user) {
-            rateLimitKey = "user:" + user.getUsername();
-            
-            // Determine limit based on user role
-            if (user.getAuthorities().stream()
-                    .anyMatch(a -> a.getAuthority().contains("STAFF") || 
-                                   a.getAuthority().contains("ADMIN") ||
-                                   a.getAuthority().contains("MANAGER"))) {
-                limit = STAFF_LIMIT;
-            } else {
-                limit = RETAIL_LIMIT;
-            }
-
-            if (!tryConsume(userBuckets, rateLimitKey, limit, response)) {
-                log.warn("Rate limit exceeded for user: {}", user.getUsername());
-                response.setStatus(429);
-                response.setHeader("X-RateLimit-Limit", String.valueOf(limit.getCapacity()));
-                response.setHeader("X-RateLimit-Remaining", "0");
-                response.setHeader("X-RateLimit-Reset", "60");
-                response.getWriter().write("{\"error\": \"Rate limit exceeded. Please slow down.\"}");
-                return;
-            }
-        } else {
-            // Unauthenticated - use IP-based limiting with default limit
-            rateLimitKey = "ip:" + clientIp;
-            
-            if (!tryConsume(ipBuckets, rateLimitKey, DEFAULT_LIMIT, response)) {
-                log.warn("Rate limit exceeded for IP: {}", clientIp);
-                response.setStatus(429);
-                response.setHeader("X-RateLimit-Limit", "60");
-                response.setHeader("X-RateLimit-Remaining", "0");
-                response.setHeader("X-RateLimit-Reset", "60");
-                response.getWriter().write("{\"error\": \"Too many requests. Please try again later.\"}");
-                return;
-            }
-        }
-
-        // Add rate limit headers to successful responses
-        response.setHeader("X-RateLimit-Limit", 
-            String.valueOf(getLimitForUser(auth)));
-
-        filterChain.doFilter(request, response);
+        // Try to get authenticated user from ReactiveSecurityContextHolder
+        return ReactiveSecurityContextHolder.getContext()
+            .map(SecurityContext::getAuthentication)
+            .filter(Authentication::isAuthenticated)
+            .flatMap(auth -> handleAuthenticatedRateLimit(exchange, chain, auth))
+            .switchIfEmpty(Mono.defer(() -> handleUnauthenticatedRateLimit(exchange, chain, clientIp)));
     }
 
     /**
-     * Try to consume a token from the bucket.
-     * Creates a new bucket if one doesn't exist for the key.
+     * Handle rate limiting for registration endpoints.
      */
-    private boolean tryConsume(
-            Map<String, Bucket> buckets,
-            String key,
-            Bandwidth limit,
-            HttpServletResponse response
-    ) {
-        Bucket bucket = buckets.computeIfAbsent(key, k -> 
-            Bucket.builder().addLimit(limit).build()
-        );
+    private Mono<Void> handleRegistrationRateLimit(
+            ServerWebExchange exchange,
+            WebFilterChain chain,
+            String clientIp) {
+        
+        String rateLimitKey = "registration:" + clientIp;
+        Bucket bucket = registrationBuckets.computeIfAbsent(rateLimitKey,
+            k -> Bucket.builder().addLimit(REGISTRATION_LIMIT).build());
 
-        // Try to consume a token
-        return bucket.tryConsume(1);
+        if (bucket.tryConsume(1)) {
+            // Add rate limit headers and continue
+            exchange.getResponse().getHeaders().set("X-RateLimit-Limit", "5");
+            exchange.getResponse().getHeaders().set("X-RateLimit-Remaining",
+                String.valueOf(bucket.getAvailableTokens()));
+            exchange.getResponse().getHeaders().set("X-RateLimit-Reset", "60");
+            return chain.filter(exchange);
+        }
+
+        log.warn("Rate limit exceeded for registration from IP: {}", clientIp);
+        return writeRateLimitResponse(exchange,
+            "{\"error\": \"Too many registration requests. Please try again later.\"}",
+            5, "60");
     }
 
     /**
-     * Get the rate limit for the current user (for header purposes).
+     * Handle rate limiting for authenticated users.
      */
-    private long getLimitForUser(Authentication auth) {
-        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof User user) {
-            if (user.getAuthorities().stream()
-                    .anyMatch(a -> a.getAuthority().contains("STAFF") || 
-                                   a.getAuthority().contains("ADMIN") ||
-                                   a.getAuthority().contains("MANAGER"))) {
-                return 500;
-            } else {
-                return 100;
-            }
+    private Mono<Void> handleAuthenticatedRateLimit(
+            ServerWebExchange exchange,
+            WebFilterChain chain,
+            Authentication auth) {
+        
+        String rateLimitKey = extractUserKey(auth);
+        Bandwidth limit = getLimitForUser(auth);
+
+        Bucket bucket = userBuckets.computeIfAbsent(rateLimitKey,
+            k -> Bucket.builder().addLimit(limit).build());
+
+        if (bucket.tryConsume(1)) {
+            // Add rate limit headers and continue
+            exchange.getResponse().getHeaders().set("X-RateLimit-Limit",
+                String.valueOf(limit.getCapacity()));
+            exchange.getResponse().getHeaders().set("X-RateLimit-Remaining",
+                String.valueOf(bucket.getAvailableTokens()));
+            exchange.getResponse().getHeaders().set("X-RateLimit-Reset", "60");
+            return chain.filter(exchange);
         }
-        return 60;
+
+        log.warn("Rate limit exceeded for user: {}", rateLimitKey);
+        return writeRateLimitResponse(exchange,
+            "{\"error\": \"Rate limit exceeded. Please slow down.\"}",
+            limit.getCapacity(), "60");
+    }
+
+    /**
+     * Handle rate limiting for unauthenticated users.
+     */
+    private Mono<Void> handleUnauthenticatedRateLimit(
+            ServerWebExchange exchange,
+            WebFilterChain chain,
+            String clientIp) {
+        
+        String rateLimitKey = "ip:" + clientIp;
+
+        Bucket bucket = ipBuckets.computeIfAbsent(rateLimitKey,
+            k -> Bucket.builder().addLimit(DEFAULT_LIMIT).build());
+
+        if (bucket.tryConsume(1)) {
+            // Add rate limit headers and continue
+            exchange.getResponse().getHeaders().set("X-RateLimit-Limit", "60");
+            exchange.getResponse().getHeaders().set("X-RateLimit-Remaining",
+                String.valueOf(bucket.getAvailableTokens()));
+            exchange.getResponse().getHeaders().set("X-RateLimit-Reset", "60");
+            return chain.filter(exchange);
+        }
+
+        log.warn("Rate limit exceeded for IP: {}", clientIp);
+        return writeRateLimitResponse(exchange,
+            "{\"error\": \"Too many requests. Please try again later.\"}",
+            60, "60");
+    }
+
+    /**
+     * Write a 429 Too Many Requests response.
+     */
+    private Mono<Void> writeRateLimitResponse(
+            ServerWebExchange exchange,
+            String errorMessage,
+            long limit,
+            String resetSeconds) {
+        
+        exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        exchange.getResponse().getHeaders().set("X-RateLimit-Limit", String.valueOf(limit));
+        exchange.getResponse().getHeaders().set("X-RateLimit-Remaining", "0");
+        exchange.getResponse().getHeaders().set("X-RateLimit-Reset", resetSeconds);
+
+        byte[] bytes = errorMessage.getBytes(StandardCharsets.UTF_8);
+        return exchange.getResponse().writeWith(
+            Mono.just(exchange.getResponse().bufferFactory().wrap(bytes)));
+    }
+
+    /**
+     * Extract user key from authentication token.
+     */
+    private String extractUserKey(Authentication auth) {
+        return "user:" + auth.getName();
+    }
+
+    /**
+     * Determine rate limit based on user role.
+     */
+    private Bandwidth getLimitForUser(Authentication auth) {
+        boolean isStaff = auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().contains("STAFF") ||
+                           a.getAuthority().contains("ADMIN") ||
+                           a.getAuthority().contains("MANAGER"));
+        return isStaff ? STAFF_LIMIT : RETAIL_LIMIT;
     }
 
     /**
      * Extract client IP address from request.
      */
-    private String getClientIp(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
+    private String getClientIp(ServerWebExchange exchange) {
+        HttpHeaders headers = exchange.getRequest().getHeaders();
+        
+        String xForwardedFor = headers.getFirst("X-Forwarded-For");
         if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
             return xForwardedFor.split(",")[0].trim();
         }
 
-        String xRealIp = request.getHeader("X-Real-IP");
+        String xRealIp = headers.getFirst("X-Real-IP");
         if (xRealIp != null && !xRealIp.isEmpty()) {
             return xRealIp;
         }
 
-        return request.getRemoteAddr();
+        InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
+        if (remoteAddress != null && remoteAddress.getAddress() != null) {
+            return remoteAddress.getAddress().getHostAddress();
+        }
+        return remoteAddress != null ? remoteAddress.getHostString() : "unknown";
     }
 }

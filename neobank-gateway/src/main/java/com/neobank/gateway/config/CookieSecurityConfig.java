@@ -1,14 +1,16 @@
 package com.neobank.gateway.config;
 
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
 /**
- * Cookie security utilities for Phase 7: Security Hardening.
+ * Reactive cookie security utilities for Spring Cloud Gateway.
  * Ensures all cookies are HttpOnly, Secure, and SameSite=Strict.
+ * Uses WebFlux's ResponseCookie and ServerWebExchange instead of servlet APIs.
  */
 @Component
 public class CookieSecurityConfig {
@@ -74,10 +76,12 @@ public class CookieSecurityConfig {
     }
 
     /**
-     * Add secure cookie to HTTP response.
+     * Add secure cookie to reactive HTTP response.
+     * Uses ServerWebExchange's response.addCookie() for WebFlux compatibility.
      */
-    public void addCookieToResponse(HttpServletResponse response, ResponseCookie cookie) {
-        response.addHeader("Set-Cookie", cookie.toString());
+    public Mono<Void> addCookieToResponse(ServerWebExchange exchange, ResponseCookie cookie) {
+        exchange.getResponse().addCookie(cookie);
+        return Mono.empty();
     }
 
     /**

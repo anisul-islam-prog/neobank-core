@@ -1,24 +1,29 @@
-# Test configuration for Gateway module
-spring.datasource.url=jdbc:tc:postgresql:17-alpine:///gateway_test
-spring.datasource.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver
-spring.datasource.username=test
-spring.datasource.password=test
-
-# JPA/Hibernate
-spring.jpa.hibernate.ddl-auto=create-drop
-spring.jpa.show-sql=false
-spring.jpa.properties.hibernate.format_sql=true
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+# Test configuration for Gateway module (WebFlux)
+# No datasource needed - gateway is a stateless reactive proxy
 
 # Security
 neobank.security.cookie.max-age=3600
-neobank.security.cookie.domain=neobank.com
+neobank.security.cookie.domain=localhost
+
+# Downstream services (mock for testing)
+neobank.gateway.routes.auth-uri=http://localhost:9081
+neobank.gateway.routes.onboarding-uri=http://localhost:9082
+neobank.gateway.routes.core-banking-uri=http://localhost:9083
+neobank.gateway.routes.lending-uri=http://localhost:9084
+neobank.gateway.routes.cards-uri=http://localhost:9085
+
+# JWT configuration (mock issuer)
+spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:9081
+spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://localhost:9081/.well-known/jwks.json
 
 # Logging
 logging.level.com.neobank.gateway=DEBUG
-logging.level.org.testcontainers=INFO
 logging.level.org.springframework=INFO
 logging.level.org.springframework.security=INFO
+logging.level.org.springframework.cloud.gateway=INFO
 
 # Tracing
 management.tracing.enabled=false
+
+# Server
+server.port=0

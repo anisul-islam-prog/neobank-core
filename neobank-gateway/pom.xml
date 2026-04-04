@@ -16,38 +16,24 @@
     <description>API Gateway - Single entry point for all external traffic</description>
 
     <dependencies>
-        <!-- Internal Dependencies -->
-        <dependency>
-            <groupId>com.neobank</groupId>
-            <artifactId>neobank-auth</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.neobank</groupId>
-            <artifactId>neobank-onboarding</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.neobank</groupId>
-            <artifactId>neobank-core-banking</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.neobank</groupId>
-            <artifactId>neobank-lending</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.neobank</groupId>
-            <artifactId>neobank-cards</artifactId>
-        </dependency>
-
-        <!-- Web -->
+        <!-- Reactive Web & Gateway -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
 
         <!-- Spring Security -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
 
         <!-- JWT -->
@@ -66,10 +52,10 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- OpenAPI/Swagger -->
+        <!-- OpenAPI/Swagger (WebFlux) -->
         <dependency>
             <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
         </dependency>
 
         <!-- Resilience4j -->
@@ -78,10 +64,10 @@
             <artifactId>resilience4j-spring-boot3</artifactId>
         </dependency>
 
-        <!-- Bucket4j for Rate Limiting -->
+        <!-- Bucket4j for Reactive Rate Limiting -->
         <dependency>
             <groupId>com.bucket4j</groupId>
-            <artifactId>bucket4j-core</artifactId>
+            <artifactId>bucket4j-caffeine</artifactId>
             <version>8.6.0</version>
         </dependency>
 
@@ -101,16 +87,6 @@
 
         <!-- Test Dependencies -->
         <dependency>
-            <groupId>org.springframework.modulith</groupId>
-            <artifactId>spring-modulith-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.awaitility</groupId>
-            <artifactId>awaitility</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
@@ -121,25 +97,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-junit-jupiter</artifactId>
-            <version>${testcontainers.version}</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.junit.jupiter</groupId>
-                    <artifactId>junit-jupiter-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.junit.platform</groupId>
-                    <artifactId>junit-platform-commons</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-postgresql</artifactId>
-            <version>${testcontainers.version}</version>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

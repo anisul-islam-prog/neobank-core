@@ -1,0 +1,278 @@
+package com.neobank.analytics.cqrs;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+import jakarta.persistence.EntityManager;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Integration test for BiTransactionHistoryRepository using Testcontainers.
+ * Tests repository queries against a real PostgreSQL database.
+ */
+@SpringBootTest
+@Testcontainers
+@ActiveProfiles("test")
+@Transactional
+@DisplayName("BiTransactionHistoryRepository Integration Tests")
+class BiTransactionHistoryRepositoryIntegrationTest {
+
+    @Container
+    @ServiceConnection
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine");
+
+    @Autowired
+    private BiTransactionHistoryRepository repository;
+
+    @Autowired
+    private EntityManager entityManager;
+
+    @BeforeEach
+    void setUp() {
+        repository.deleteAll();
+        entityManager.flush();
+        entityManager.clear();
+    }
+
+    @Nested
+    @DisplayName("Save and Retrieve")
+    class SaveAndRetrieveTests {
+
+        @Test
+        @DisplayName("Should save and retrieve BI record by ID")
+        void shouldSaveAndRetrieveBiRecordById() {
+            // Given
+            UUID id = UUID.randomUUID();
+            BiTransactionHistory bi = createTestBiRecord(id);
+
+            // When
+            BiTransactionHistory saved = repository.save(bi);
+            entityManager.flush();
+            BiTransactionHistory retrieved = repository.findById(saved.getId()).orElse(null);
+
+            // Then
+            assertThat(retrieved).isNotNull();
+            assertThat(retrieved.getAmount()).isEqualByComparingTo(bi.getAmount());
+            assertThat(retrieved.getCurrency()).isEqualTo(bi.getCurrency());
+        }
+
+        @Test
+        @DisplayName("Should save BI record with COMPLETED status")
+        void shouldSaveBiRecordWithCompletedStatus() {
+            UUID id = UUID.randomUUID();
+            BiTransactionHistory bi = createTestBiRecord(id);
+            bi.setStatus("COMPLETED");
+            BiTransactionHistory saved = repository.save(bi);
+            assertThat(saved.getStatus()).isEqualTo("COMPLETED");
+        }
+
+        @Test
+        @DisplayName("Should save BI record with balance snapshots")
+        void shouldSaveBiRecordWithBalanceSnapshots() {
+            UUID id = UUID.randomUUID();
+            BiTransactionHistory bi = createTestBiRecord(id);
+            bi.setFromBalanceBefore(new BigDecimal("1000.00"));
+            bi.setFromBalanceAfter(new BigDecimal("500.00"));
+            bi.setToBalanceBefore(new BigDecimal("200.00"));
+            bi.setToBalanceAfter(new BigDecimal("700.00"));
+            BiTransactionHistory saved = repository.save(bi);
+            assertThat(saved.getFromBalanceBefore()).isEqualByComparingTo(new BigDecimal("1000.00"));
+            assertThat(saved.getFromBalanceAfter()).isEqualByComparingTo(new BigDecimal("500.00"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Find By From Account ID")
+    class FindByFromAccountIdTests {
+
+        @Test
+        @DisplayName("Should find all BI records for from account")
+        void shouldFindAllBiRecordsForFromAccount() {
+            UUID fromAccountId = UUID.randomUUID();
+            createTestBiRecordWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
+            createTestBiRecordWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
+            createTestBiRecordWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
+            entityManager.flush();
+            entityManager.clear();
+
+            List<BiTransactionHistory> results = repository.findByFromAccountIdOrderByOccurredAtDesc(fromAccountId);
+            assertThat(results).hasSize(3);
+            assertThat(results).allMatch(bi -> bi.getFromAccountId().equals(fromAccountId));
+        }
+
+        @Test
+        @DisplayName("Should order results by occurred at descending")
+        void shouldOrderResultsByOccurredAtDescending() {
+            UUID fromAccountId = UUID.randomUUID();
+            Instant now = Instant.now();
+
+            BiTransactionHistory bi1 = createTestBiRecordWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
+            bi1.setOccurredAt(now.minusSeconds(3600));
+
+            BiTransactionHistory bi2 = createTestBiRecordWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
+            bi2.setOccurredAt(now);
+
+            BiTransactionHistory bi3 = createTestBiRecordWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
+            bi3.setOccurredAt(now.minusSeconds(7200));
+
+            repository.saveAll(List.of(bi1, bi2, bi3));
+            entityManager.flush();
+            entityManager.clear();
+
+            List<BiTransactionHistory> results = repository.findByFromAccountIdOrderByOccurredAtDesc(fromAccountId);
+            assertThat(results).hasSize(3);
+            assertThat(results.get(0).getOccurredAt()).isEqualTo(now);
+            assertThat(results.get(1).getOccurredAt()).isEqualTo(now.minusSeconds(3600));
+            assertThat(results.get(2).getOccurredAt()).isEqualTo(now.minusSeconds(7200));
+        }
+    }
+
+    @Nested
+    @DisplayName("Get Total Outflow")
+    class GetTotalOutflowTests {
+
+        @Test
+        @DisplayName("Should calculate total outflow for account in date range")
+        void shouldCalculateTotalOutflowForAccountInDateRange() {
+            UUID fromAccountId = UUID.randomUUID();
+            Instant now = Instant.now();
+            Instant start = now.minusSeconds(7200);
+            Instant end = now;
+
+            BiTransactionHistory bi1 = createTestBiRecordWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
+            bi1.setAmount(new BigDecimal("100.00"));
+            bi1.setOccurredAt(now.minusSeconds(3600));
+
+            BiTransactionHistory bi2 = createTestBiRecordWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
+            bi2.setAmount(new BigDecimal("200.00"));
+            bi2.setOccurredAt(now.minusSeconds(1800));
+
+            BiTransactionHistory bi3 = createTestBiRecordWithAccount(UUID.randomUUID(), fromAccountId, UUID.randomUUID());
+            bi3.setAmount(new BigDecimal("300.00"));
+            bi3.setOccurredAt(now.minusSeconds(10000)); // Outside range
+
+            repository.saveAll(List.of(bi1, bi2, bi3));
+            entityManager.flush();
+            entityManager.clear();
+
+            BigDecimal totalOutflow = repository.getTotalOutflow(fromAccountId, start, end);
+            assertThat(totalOutflow).isEqualByComparingTo(new BigDecimal("300.00"));
+        }
+
+        @Test
+        @DisplayName("Should return null when no outflow in date range")
+        void shouldReturnNullWhenNoOutflowInDateRange() {
+            UUID fromAccountId = UUID.randomUUID();
+            Instant start = Instant.now().minusSeconds(7200);
+            Instant end = Instant.now();
+
+            BigDecimal totalOutflow = repository.getTotalOutflow(fromAccountId, start, end);
+            assertThat(totalOutflow).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("Get Volume By Currency")
+    class GetVolumeByCurrencyTests {
+
+        @Test
+        @DisplayName("Should group transaction volume by currency")
+        void shouldGroupTransactionVolumeByCurrency() {
+            Instant now = Instant.now();
+            Instant start = now.minusSeconds(7200);
+            Instant end = now;
+
+            BiTransactionHistory bi1 = createTestBiRecord(UUID.randomUUID());
+            bi1.setAmount(new BigDecimal("100.00"));
+            bi1.setCurrency("USD");
+            bi1.setOccurredAt(now.minusSeconds(3600));
+
+            BiTransactionHistory bi2 = createTestBiRecord(UUID.randomUUID());
+            bi2.setAmount(new BigDecimal("200.00"));
+            bi2.setCurrency("USD");
+            bi2.setOccurredAt(now.minusSeconds(1800));
+
+            BiTransactionHistory bi3 = createTestBiRecord(UUID.randomUUID());
+            bi3.setAmount(new BigDecimal("150.00"));
+            bi3.setCurrency("EUR");
+            bi3.setOccurredAt(now.minusSeconds(1800));
+
+            repository.saveAll(List.of(bi1, bi2, bi3));
+            entityManager.flush();
+            entityManager.clear();
+
+            List<Object[]> results = repository.getVolumeByCurrency(start, end);
+            assertThat(results).hasSize(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("Get Daily Transaction Count")
+    class GetDailyTransactionCountTests {
+
+        @Test
+        @DisplayName("Should group transactions by date")
+        void shouldGroupTransactionsByDate() {
+            Instant day1 = Instant.parse("2024-01-15T10:00:00Z");
+            Instant day2 = Instant.parse("2024-01-16T10:00:00Z");
+            Instant start = day1.minusSeconds(3600);
+            Instant end = day2.plusSeconds(3600);
+
+            BiTransactionHistory bi1 = createTestBiRecord(UUID.randomUUID());
+            bi1.setOccurredAt(day1);
+
+            BiTransactionHistory bi2 = createTestBiRecord(UUID.randomUUID());
+            bi2.setOccurredAt(day1.plusSeconds(3600));
+
+            BiTransactionHistory bi3 = createTestBiRecord(UUID.randomUUID());
+            bi3.setOccurredAt(day2);
+
+            repository.saveAll(List.of(bi1, bi2, bi3));
+            entityManager.flush();
+            entityManager.clear();
+
+            List<Object[]> results = repository.getDailyTransactionCount(start, end);
+            assertThat(results).hasSize(2);
+        }
+    }
+
+    /**
+     * Helper method to create a test BI record.
+     */
+    private BiTransactionHistory createTestBiRecord(UUID id) {
+        BiTransactionHistory bi = new BiTransactionHistory();
+        bi.setId(id);
+        bi.setTransferId(UUID.randomUUID());
+        bi.setFromAccountId(UUID.randomUUID());
+        bi.setToAccountId(UUID.randomUUID());
+        bi.setAmount(new BigDecimal("100.00"));
+        bi.setCurrency("USD");
+        bi.setStatus("COMPLETED");
+        bi.setOccurredAt(Instant.now());
+        bi.setTransactionType("TRANSFER");
+        bi.setChannel("CORE_BANKING");
+        return bi;
+    }
+
+    private BiTransactionHistory createTestBiRecordWithAccount(UUID id, UUID fromAccountId, UUID toAccountId) {
+        BiTransactionHistory bi = createTestBiRecord(id);
+        bi.setFromAccountId(fromAccountId);
+        bi.setToAccountId(toAccountId);
+        return bi;
+    }
+}

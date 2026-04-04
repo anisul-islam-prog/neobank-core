@@ -2,25 +2,41 @@ package com.neobank.gateway.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoders;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
+import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.csrf.CookieServerCsrfTokenRepository;
+import org.springframework.security.web.server.csrf.ServerCsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.server.util.matcher.PathPatternParserServerWebExchangeMatcher;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * Security configuration for Phase 7: Security Hardening.
- * Implements CORS policies, CSRF protection, and secure cookie settings.
+ * Reactive Security configuration for Spring Cloud Gateway.
+ * Implements CORS policies, JWT authentication, and CSRF protection for WebFlux.
  */
 @Configuration
-@EnableWebSecurity
+@EnableWebFluxSecurity
 public class SecurityConfig {
 
     // Allowed frontend domains - only these 3 specific domains are permitted
@@ -40,39 +56,47 @@ public class SecurityConfig {
     );
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // CSRF token handler for SPA applications
-        CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
-        requestHandler.setCsrfRequestAttributeName(null);
-
-        http
-            // Disable CSRF for API endpoints that use JWT authentication
+    public SecurityWebFilterChain securityWebFilterChain(
+            ServerHttpSecurity http,
+            CorsConfigurationSource corsConfigurationSource,
+            ReactiveJwtAuthenticationConverterAdapter jwtAuthenticationConverter) {
+        
+        return http
+            // CSRF Configuration - Disable for API endpoints that use JWT authentication
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers(
-                    "/api/auth/**",
-                    "/api/onboarding/register",
-                    "/api/transfers/**",
-                    "/api/accounts/**",
-                    "/api/cards/**",
-                    "/api/loans/**"
+                .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(new ServerCsrfTokenRequestAttributeHandler())
+                .requireCsrfProtectionMatcher(
+                    ServerWebExchangeMatchers.pathMatchers(
+                        "/api/auth/**",
+                        "/api/onboarding/register",
+                        "/api/transfers/**",
+                        "/api/accounts/**",
+                        "/api/cards/**",
+                        "/api/loans/**"
+                    )
                 )
-                // Enable CSRF for browser-based operations
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                .csrfTokenRequestHandler(requestHandler)
             )
-            
+
             // CORS Configuration
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            
+            .cors(cors -> cors.configurationSource(corsConfigurationSource))
+
             // Session Management - Stateless for APIs
-            .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            .securityContextRepository(
+                org.springframework.security.web.server.context.NoOpServerSecurityContextRepository.getInstance()
             )
-            
+
+            // JWT Authentication
+            .oauth2ResourceServer(oauth2 -> oauth2
+                .jwt(jwt -> jwt
+                    .jwtAuthenticationConverter(jwtAuthenticationConverter)
+                )
+            )
+
             // Authorization Rules
-            .authorizeHttpRequests(auth -> auth
+            .authorizeExchange(exchanges -> exchanges
                 // Public endpoints
-                .requestMatchers(
+                .pathMatchers(
                     "/api/auth/login",
                     "/api/auth/register",
                     "/api/onboarding/register",
@@ -81,17 +105,17 @@ public class SecurityConfig {
                     "/v3/api-docs/**",
                     "/swagger-ui/**"
                 ).permitAll()
-                
+
                 // All other API endpoints require authentication
-                .requestMatchers("/api/**").authenticated()
-                
+                .pathMatchers("/api/**").authenticated()
+
                 // Actuator endpoints (except health/info) require admin role
-                .requestMatchers("/actuator/**").hasRole("ADMIN")
-                
+                .pathMatchers("/actuator/**").hasRole("ADMIN")
+
                 // Default rule
-                .anyRequest().authenticated()
+                .anyExchange().authenticated()
             )
-            
+
             // Security Headers
             .headers(headers -> headers
                 .contentSecurityPolicy(csp -> csp
@@ -106,30 +130,29 @@ public class SecurityConfig {
                         "form-action 'self'"
                     )
                 )
-                .frameOptions(frame -> frame.deny())
+                .frameOptions(options -> {})  // Use default DENY
                 .contentTypeOptions(customizer -> {})
-                .cacheControl(cache -> cache.disable())
                 .referrerPolicy(referrer -> referrer.policy(
-                    org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN
+                    org.springframework.security.web.server.header.ReferrerPolicyServerHttpHeadersWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN
                 ))
                 .permissionsPolicy(permissions -> permissions.policy(
                     "camera=(), microphone=(), geolocation=(), payment=()"
                 ))
-            );
+            )
 
-        return http.build();
+            .build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // Combine production and development origins
         List<String> allOrigins = new java.util.ArrayList<>(ALLOWED_ORIGINS);
         if (isDevelopmentEnvironment()) {
             allOrigins.addAll(DEV_ORIGINS);
         }
-        
+
         configuration.setAllowedOrigins(allOrigins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList(
@@ -150,15 +173,31 @@ public class SecurityConfig {
             "X-RateLimit-Remaining",
             "X-RateLimit-Reset"
         ));
-        
+
         // Security settings
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L); // Cache preflight for 1 hour
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-        
+
         return source;
+    }
+
+    /**
+     * Reactive JWT Authentication Converter.
+     * Converts JWT claims to Spring Security Authentication object.
+     */
+    @Bean
+    public ReactiveJwtAuthenticationConverterAdapter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
+        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
+        grantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
+        
+        JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
+        jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
+        
+        return new ReactiveJwtAuthenticationConverterAdapter(jwtAuthenticationConverter);
     }
 
     /**
@@ -166,10 +205,10 @@ public class SecurityConfig {
      * In production, only the 3 specific frontend domains are allowed.
      */
     private boolean isDevelopmentEnvironment() {
-        String activeProfile = System.getProperty("spring.profiles.active", 
+        String activeProfile = System.getProperty("spring.profiles.active",
             System.getenv("SPRING_PROFILES_ACTIVE"));
         return activeProfile != null && (
-            activeProfile.contains("dev") || 
+            activeProfile.contains("dev") ||
             activeProfile.contains("local") ||
             activeProfile.contains("test")
         );

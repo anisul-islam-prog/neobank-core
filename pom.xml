@@ -36,6 +36,7 @@
         <spring-modulith.version>1.4.0</spring-modulith.version>
         <testcontainers.version>2.0.4</testcontainers.version>
         <spring-ai.version>2.0.0-M1</spring-ai.version>
+        <spring-cloud.version>2025.0.0</spring-cloud.version>
         <jjwt.version>0.12.6</jjwt.version>
         <resilience4j.version>2.3.0</resilience4j.version>
         <micrometer-registry-prometheus.version>1.14.0</micrometer-registry-prometheus.version>
@@ -64,6 +65,15 @@
                 <groupId>org.springframework.modulith</groupId>
                 <artifactId>spring-modulith-bom</artifactId>
                 <version>${spring-modulith.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Spring Cloud -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -145,6 +155,11 @@
             <dependency>
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>2.8.9</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
                 <version>2.8.9</version>
             </dependency>
 
@@ -232,7 +247,23 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-web</artifactId>
                 <version>4.0.4</version>
-                <scope>test</scope>
+            </dependency>
+
+            <!-- Explicitly declared transitive dependencies for dependency hygiene -->
+            <dependency>
+                <groupId>jakarta.persistence</groupId>
+                <artifactId>jakarta.persistence-api</artifactId>
+                <version>3.2.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.data</groupId>
+                <artifactId>spring-data-jpa</artifactId>
+                <version>4.0.4</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>2.0.17</version>
             </dependency>
 
             <!-- Testcontainers Modular Dependencies -->
@@ -291,11 +322,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

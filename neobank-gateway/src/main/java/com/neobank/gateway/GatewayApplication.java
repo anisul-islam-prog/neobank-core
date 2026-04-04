@@ -5,17 +5,17 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 
 /**
- * NeoBank Gateway Application.
+ * NeoBank Gateway Application - Reactive API Gateway.
+ * 
  * Single entry point for all external traffic.
- *
- * Note: Gateway does not use @Modulithic as it serves as an aggregator
- * for business modules rather than hosting domain modules itself.
+ * Routes requests to internal microservices via Spring Cloud Gateway.
+ * 
+ * Note: This gateway uses WebFlux (reactive) and does NOT directly
+ * host domain modules. It proxies requests to downstream services.
  */
 @SpringBootApplication
 @ComponentScan(basePackages = {
-    "com.neobank.gateway",
-    "com.neobank",
-    "com.neobank.core"
+    "com.neobank.gateway"
 })
 public class GatewayApplication {
 
