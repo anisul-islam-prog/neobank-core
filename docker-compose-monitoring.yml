@@ -1,0 +1,156 @@
+# =============================================================================
+# NeoBank Monitoring Stack — LGT + OTel Collector
+# =============================================================================
+# Start:  docker compose -f docker-compose-monitoring.yml up -d
+# Stop:   docker compose -f docker-compose-monitoring.yml down
+#
+# Services:
+#   - Prometheus   : Metrics scraping  (http://localhost:9090)
+#   - Grafana      : Dashboards        (http://localhost:3003)
+#   - Tempo        : Trace storage     (http://localhost:3200)
+#   - Loki         : Log aggregation   (http://localhost:3100)
+#   - OTel Collector: Receives traces from Spring Boot & Next.js frontend
+# =============================================================================
+
+services:
+  # ── OpenTelemetry Collector ────────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.124.0
+    container_name: neobank-otel-collector
+    command: ["--config=/etc/otel-collector-config.yml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC  (Spring Boot, Next.js)
+      - "4318:4318"   # OTLP HTTP  (Spring Boot, Next.js)
+    volumes:
+      - ./observability/otel-collector/otel-collector-config.yml:/etc/otel-collector-config.yml:ro
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    networks:
+      - neobank-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:13133/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ── Prometheus ─────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v3.3.0
+    container_name: neobank-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - neobank-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Grafana ────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:12.0.0
+    container_name: neobank-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_SERVER_HTTP_PORT: "3003"
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-piechart-panel
+    ports:
+      - "3003:3003"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    networks:
+      - neobank-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3003/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Tempo (Trace Storage) ──────────────────────────────────────────────────
+  tempo:
+    image: grafana/tempo:2.7.1
+    container_name: neobank-tempo
+    command: ['-config.file=/etc/tempo/tempo.yml']
+    ports:
+      - "3200:3200"   # Tempo UI
+      - "4327:4317"   # OTLP gRPC  (direct, bypass collector)
+      - "4328:4318"   # OTLP HTTP  (direct, bypass collector)
+    volumes:
+      - ./observability/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo_data:/tmp/tempo
+    networks:
+      - neobank-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3200/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Loki (Log Aggregation) ─────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:3.4.0
+    container_name: neobank-loki
+    command: ['-config.file=/etc/loki/loki.yml']
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    networks:
+      - neobank-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Promtail (Log Shipper) ─────────────────────────────────────────────────
+  promtail:
+    image: grafana/promtail:3.4.0
+    container_name: neobank-promtail
+    command: ['-config.file=/etc/promtail/promtail.yml']
+    volumes:
+      - ./observability/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/log:/var/log:ro
+    depends_on:
+      loki:
+        condition: service_healthy
+    networks:
+      - neobank-network
+
+networks:
+  neobank-network:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  tempo_data:
+  loki_data:
