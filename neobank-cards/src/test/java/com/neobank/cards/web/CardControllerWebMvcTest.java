@@ -32,10 +32,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * WebMvc test for CardController.
  * Tests REST endpoints, JSON mapping, security, and error handling.
+ * CardApi is mocked via @MockitoBean in CardsWebMvcTestConfig to avoid
+ * pulling in the full JPA/service layer.
+ *
+ * Uses CardsWebMvcTestBootConfig as the @SpringBootConfiguration root (instead
+ * of CardsTestConfig) to prevent JPA auto-configuration in this slice test.
  */
 @WebMvcTest(controllers = CardController.class)
 @AutoConfigureMockMvc
-@Import(CardsWebMvcTestConfig.class)
+@Import({CardsWebMvcTestBootConfig.class, CardsWebMvcTestConfig.class})
 @DisplayName("CardController WebMvc Tests")
 class CardControllerWebMvcTest {
 

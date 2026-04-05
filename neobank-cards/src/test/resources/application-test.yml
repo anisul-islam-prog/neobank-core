@@ -18,6 +18,23 @@ spring:
 encryption:
   key: TestEncryptionKey32CharsLong!!
 
+# Disable tracing and metrics export in tests (slim context)
+management:
+  tracing:
+    enabled: false
+    sampling:
+      probability: 0.0
+  metrics:
+    export:
+      prometheus:
+        enabled: false
+      otlp:
+        enabled: false
+  otlp:
+    tracing:
+      export:
+        enabled: false
+
 # Logging
 logging:
   level:

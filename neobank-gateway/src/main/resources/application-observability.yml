@@ -34,19 +34,19 @@ management:
   # Observability exporters
   otlp:
     tracing:
-      endpoint: http://tempo:4318/v1/traces
+      endpoint: http://otel-collector:4318/v1/traces
       export:
         enabled: true
-  
+
 # Spring application settings
 spring:
   application:
     name: neobank-gateway
-  
+
   # OTLP tracing export
   otlp:
     tracing:
-      endpoint: http://tempo:4318/v1/traces
+      endpoint: http://otel-collector:4318/v1/traces
 
 # Server configuration
 server:
