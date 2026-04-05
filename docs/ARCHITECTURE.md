@@ -266,12 +266,14 @@ Request → CORS Check → Rate Limit → JWT Validation → Route → Response
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Next.js | 16.2 | React framework with App Router, instrumentation hook |
-| React | 19.2 | UI component library |
-| TypeScript | 5.8 | Type safety |
+| Next.js | 16.2.2 | React framework with App Router, instrumentation hook |
+| React | 19.2.0 | UI component library |
+| TypeScript | 5.8+ | Type safety |
 | Node.js | 24.14+ | Runtime environment |
+| pnpm | 10+ | Package manager (faster, disk-efficient) |
 | Tailwind CSS | 3.4 | Utility-first CSS framework |
-| OpenTelemetry API | 1.9 | Frontend trace instrumentation |
+| OpenTelemetry SDK | 0.200+ | Frontend trace instrumentation (NodeSDK) |
+| OpenTelemetry API | 1.9 | Trace API surface |
 | js-cookie | 3.0 | JWT cookie management |
 | Axios | 1.9 | HTTP client |
 
@@ -609,16 +611,127 @@ NeoBank uses the **LGT stack** (Loki, Grafana, Tempo) with an OpenTelemetry Coll
 ```bash
 # Start the monitoring stack
 docker compose -f docker-compose-monitoring.yml up -d
+
+# Verify all services are healthy
+docker compose -f docker-compose-monitoring.yml ps
 ```
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| OTel Collector | 4317/4318 | Receives traces from Spring Boot & Next.js |
-| Prometheus | 9090 | Metrics scraping from all modules |
-| Grafana | 3003 | Unified dashboards (admin/admin123) |
-| Tempo | 3200 | Distributed trace storage |
-| Loki | 3100 | Log aggregation |
-| Promtail | — | Log shipper to Loki |
+| Service | Port | Protocol | Purpose |
+|---------|------|----------|---------|
+| OTel Collector | 4317 / 4318 | OTLP gRPC + HTTP | Receives traces from Spring Boot & Next.js |
+| Prometheus | 9090 | HTTP | Metrics scraping from all modules (`/actuator/prometheus`) |
+| Grafana | 3003 | HTTP | Unified dashboards (admin/admin123) |
+| Tempo | 3200 | HTTP | Distributed trace storage |
+| Loki | 3100 | HTTP | Log aggregation |
+| Promtail | — | — | Log shipper to Loki |
+
+### Frontend Tracing (Next.js 16)
+
+The frontend uses OpenTelemetry NodeSDK to instrument all Next.js server-side operations:
+
+```
+┌──────────────────────────────────────────────────┐
+│  Next.js 16 Server                               │
+│                                                  │
+│  src/instrumentation.ts                          │
+│  ┌────────────────────────────────────────────┐  │
+│  │ register() → NodeSDK.start()               │  │
+│  │   ├─ Resource: service.name = "frontend"   │  │
+│  │   ├─ OTLPTraceExporter                     │  │
+│  │   │   └─ http://otel-collector:4318/...    │  │
+│  │   └─ SIGTERM → sdk.shutdown()              │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  next.config.ts                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │ experimental.instrumentationHook: true     │  │
+│  │ rewrites: /api/:path* → :8080/api/:path*   │  │
+│  └────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────┘
+```
+
+Configuration in `package.json`:
+```json
+{
+  "packageManager": "pnpm@10.4.1",
+  "engines": { "node": ">=24.14.1", "pnpm": ">=10" },
+  "dependencies": {
+    "@opentelemetry/sdk-node": "^0.200.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.200.0",
+    "@opentelemetry/resources": "^2.0.0",
+    "@opentelemetry/semantic-conventions": "^1.30.0"
+  }
+}
+```
+
+### Backend Tracing Configuration
+
+All backend modules export traces via OTLP to the collector:
+
+```yaml
+# application-observability.yml (all modules)
+management:
+  tracing:
+    sampling:
+      probability: 1.0  # 100% sampling (reduce in production)
+    propagation:
+      type: tracecontext,b3
+  otlp:
+    tracing:
+      endpoint: http://otel-collector:4318/v1/traces
+      export:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+```
+
+Maven dependencies (parent POM):
+```xml
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-tracing-bridge-otel</artifactId>
+</dependency>
+<dependency>
+    <groupId>io.opentelemetry</groupId>
+    <artifactId>opentelemetry-exporter-otlp</artifactId>
+</dependency>
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-registry-prometheus</artifactId>
+</dependency>
+```
+
+### Test Configuration
+
+`@WebMvcTest` slice tests exclude JPA/Data auto-configuration to avoid `EntityManagerFactory` errors:
+
+```java
+// CardsWebMvcTestBootConfig.java — dedicated @SpringBootConfiguration for WebMvc tests
+@SpringBootConfiguration
+@EnableAutoConfiguration(exclude = {
+    DataSourceAutoConfiguration.class,         // org.springframework.boot.jdbc.autoconfigure
+    DataJpaRepositoriesAutoConfiguration.class // org.springframework.boot.data.jpa.autoconfigure
+})
+@ComponentScan(basePackageClasses = CardController.class)
+public class CardsWebMvcTestBootConfig {}
+```
+
+Test `application-test.yml` disables tracing and metrics export:
+```yaml
+management:
+  tracing:
+    enabled: false
+    sampling:
+      probability: 0.0
+  metrics:
+    export:
+      prometheus:
+        enabled: false
+      otlp:
+        enabled: false
+```
 
 ### Metrics
 
@@ -631,15 +744,28 @@ Micrometer with Prometheus registry tracks:
 | Event publication | Success/failure rates |
 | AI token usage | `gen_ai.client.token.usage` |
 | Rate limit hits | 429 responses per user/IP |
+| OTel Collector | Internal collector metrics (port 8888) |
 
 Access metrics at: `http://localhost:8080/actuator/prometheus`
 
-### Tracing
+### Tracing Flow
 
-- All modules export traces via OTLP to `http://otel-collector:4318/v1/traces`
-- 100% sampling rate (`management.tracing.sampling.probability=1.0`)
-- Trace headers propagated: `X-Trace-Id`, `X-Span-Id`, `X-Sampled`
+```
+Client → Next.js Frontend (trace starts)
+         ↓ OTLP HTTP
+    OTel Collector (:4318)
+         ↓ batch processor
+    ┌────┴────┐
+    ↓         ↓
+  Tempo    Prometheus (metrics)
+(trace storage)
+
+Backend Modules → OTLP gRPC/HTTP → OTel Collector → Tempo
+```
+
+- Trace headers propagated: `X-Trace-Id`, `X-Span-Id`, `X-Sampled`, `traceparent`, `b3`
 - Frontend (Next.js 16) instruments via `src/instrumentation.ts` with OpenTelemetry NodeSDK
+- 100% sampling rate (`management.tracing.sampling.probability=1.0`)
 
 ### Actuator Endpoints
 
@@ -650,6 +776,31 @@ Access metrics at: `http://localhost:8080/actuator/prometheus`
 | `/actuator/metrics` | All metrics | Authenticated |
 | `/actuator/circuitbreakers` | Circuit breaker states | Admin |
 | `/actuator/prometheus` | Prometheus metrics | Monitoring |
+| `/actuator/threaddump` | Thread dump | Admin |
+| `/actuator/heapdump` | Heap dump | Admin |
+| `/actuator/env` | Environment properties | Admin |
+| `/actuator/loggers` | Logger configuration | Admin |
+| `/actuator/tracing` | Tracing info | Public |
+
+### Production Health Monitoring
+
+```bash
+# One-time health check
+./scripts/check-system-health.sh
+
+# Watch mode (every 30 seconds)
+./scripts/check-system-health.sh --watch 30
+
+# JSON output (for CI/CD)
+./scripts/check-system-health.sh --json
+```
+
+The script checks 18 services across 3 tiers:
+1. **Core**: Frontend (:3000), Reactive Gateway (:8080)
+2. **Downstream**: Auth (:8081), Onboarding (:8082), Core Banking (:8083), Lending (:8084), Cards (:8085), Fraud (:8086), Batch (:8087), Analytics (:8088)
+3. **Observability**: Prometheus (:9090), Grafana (:3003), Tempo (:3200), Loki (:3100), OTel Collector (:13133)
+
+Alerts are sent as mock JSON to a simulated Slack webhook. Set `SLACK_WEBHOOK_URL` for real integration.
 
 ---
 

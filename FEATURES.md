@@ -310,27 +310,37 @@ A comprehensive list of features available in the NeoBank digital banking platfo
 - [x] Database connection pool metrics
 - [x] Circuit breaker metrics
 - [x] Rate limiter metrics
+- [x] Prometheus endpoint (`/actuator/prometheus`)
 
 ### Distributed Tracing
-- [x] OpenTelemetry integration
-- [x] Trace ID propagation
-- [x] Span ID tracking
-- [x] X-Trace-Id response header
-- [x] Integration with Tempo
+- [x] OpenTelemetry integration (OTLP exporter)
+- [x] Micrometer tracing bridge (micrometer-tracing-bridge-otel)
+- [x] Trace ID propagation (X-Trace-Id, X-Span-Id)
+- [x] 100% sampling rate (configurable per environment)
+- [x] Integration with Grafana Tempo via OTel Collector
+- [x] Frontend (Next.js 16) OpenTelemetry NodeSDK instrumentation
 
-### Logging
-- [x] Structured logging
-- [x] Log correlation with trace IDs
-- [x] Centralized logging (Loki)
-- [x] Log levels per module
-- [x] Sensitive data masking
+### Log Aggregation
+- [x] Structured logging with trace ID correlation
+- [x] Loki log aggregation
+- [x] Promtail log shipper
+- [x] Sensitive data masking in logs
 
 ### Dashboards (Grafana)
-- [x] System health dashboard
+- [x] System health dashboard (port 3003)
 - [x] Business metrics dashboard
 - [x] Circuit breaker dashboard
 - [x] Rate limiting dashboard
 - [x] Error tracking dashboard
+- [x] Tempo trace viewer linked to Loki logs
+
+### Production Monitoring
+- [x] `scripts/check-system-health.sh` — production health check script
+- [x] Color-coded status report (UP/DOWN per service)
+- [x] Monitors Frontend, Gateway, 8 downstream services, 5 observability components
+- [x] Mock Slack webhook alert on service DOWN
+- [x] Watch mode (`--watch <seconds>`) for continuous monitoring
+- [x] JSON output mode (`--json`) for CI/CD integration
 
 ---
 
@@ -376,38 +386,49 @@ A comprehensive list of features available in the NeoBank digital banking platfo
 - [x] Artifact upload
 
 ### Infrastructure
-- [x] Docker Compose orchestration
+- [x] Docker Compose orchestration (dev, test, prod, demo profiles)
 - [x] PostgreSQL container
 - [x] Ollama container (local AI)
-- [x] Observability stack (Prometheus, Grafana, Loki, Tempo)
-- [x] Health checks
+- [x] Observability stack (OTel Collector, Prometheus, Grafana, Loki, Tempo, Promtail)
+- [x] Health checks for all containers
 - [x] Network isolation
+- [x] `docker-compose-monitoring.yml` for standalone monitoring stack
+- [x] `scripts/check-system-health.sh` for production health monitoring
 
 ---
 
 ## 📱 Frontend Applications
 
-### Retail App (Next.js)
+### Retail App (Next.js 16)
 - [x] Customer dashboard
 - [x] Account management
 - [x] Transfer interface
 - [x] Card controls
 - [x] Transaction history
 - [x] Profile settings
+- [x] OpenTelemetry NodeSDK instrumentation
+- [x] API proxy to Reactive Gateway (`/api/:path*` → `:8080/api/:path*`)
 
-### Staff Portal (Next.js)
+### Staff Portal (Next.js 16)
 - [x] KYC approval interface
 - [x] Transfer approval queue
 - [x] Credit score management
 - [x] Loan processing
 - [x] User search
 
-### Admin Console (Next.js)
+### Admin Console (Next.js 16)
 - [x] BI dashboards
 - [x] System monitoring
 - [x] User management
 - [x] Configuration interface
 - [x] Audit logs
+
+### Frontend Infrastructure
+- [x] Node.js ≥ 24.14.1 runtime
+- [x] pnpm ≥ 10 package manager
+- [x] TypeScript 5.8+
+- [x] `next.config.ts` with `instrumentationHook: true`
+- [x] `src/instrumentation.ts` for OTel trace export to `http://otel-collector:4318/v1/traces`
 
 ---
 
@@ -427,5 +448,5 @@ A comprehensive list of features available in the NeoBank digital banking platfo
 
 ---
 
-**Last Updated:** 2026-03-24  
-**Version:** 1.5 (Phase 7 Complete)
+**Last Updated:** 2026-04-05
+**Version:** 1.6 (Phase 9 Complete — Full-Stack Observability + pnpm)

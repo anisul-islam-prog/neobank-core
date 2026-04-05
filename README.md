@@ -16,10 +16,16 @@
 # Start infrastructure
 docker-compose --profile dev up -d
 
+# Start monitoring stack (optional — see Observability section)
+docker compose -f docker-compose-monitoring.yml up -d
+
 # Run backend (all modules)
 mvn spring-boot:run
 
-# Run frontend (retail)
+# Run frontend with pnpm (recommended)
+cd apps/retail-app && pnpm install && pnpm dev
+
+# Run frontend with npm (fallback)
 cd apps/retail-app && npm install && npm run dev
 ```
 
@@ -29,6 +35,9 @@ cd apps/retail-app && npm install && npm run dev
 - Admin Console: http://localhost:3002
 - API Gateway: http://localhost:8080
 - Swagger UI: http://localhost:8080/swagger-ui.html
+- Grafana Dashboards: http://localhost:3003 (admin/admin123)
+- Prometheus: http://localhost:9090
+- Tempo Traces: http://localhost:3200
 
 ---
 
@@ -43,7 +52,7 @@ All 9 backend modules have comprehensive test suites:
 | neobank-onboarding | 280 | ✅ Complete | Servlet-based Spring Modulith |
 | neobank-core-banking | 428 | ✅ Complete | Servlet-based Spring Modulith |
 | neobank-lending | 410 | ✅ Complete | Servlet-based Spring Modulith |
-| neobank-cards | 372 | ✅ Complete | Servlet-based Spring Modulith |
+| neobank-cards | 324 | ✅ Complete | Servlet-based Spring Modulith |
 | neobank-batch | 98 | ✅ Complete | Servlet-based Spring Modulith |
 | neobank-analytics | 75 | ✅ Complete | Servlet-based Spring Modulith |
 | neobank-fraud | 258 | ✅ Complete | Servlet-based Spring Modulith |
@@ -90,12 +99,14 @@ mvn clean test -DargLine="-Dnet.bytebuddy.experimental=true --sun-misc-unsafe-me
 │   │   ├── [Entity]Test.java           # Entity state tests
 │   │   └── [Repository]IntegrationTest.java # @SpringBootTest + Testcontainers
 │   ├── web/
-│   │   └── [Controller]WebMvcTest.java # @WebMvcTest with security
+│   │   ├── [Controller]WebMvcTest.java # @WebMvcTest with security
+│   │   ├── CardsWebMvcTestConfig.java  # Security + ObjectMapper for slice tests
+│   │   └── CardsWebMvcTestBootConfig.java # @SpringBootConfiguration excluding JPA
 │   └── config/
 │       ├── SecurityConfigTest.java     # Security configuration tests
 │       └── RateLimitingFilterTest.java # Filter tests (WebFlux or Servlet)
 └── resources/
-    └── application-test.yml            # Testcontainers config
+    └── application-test.yml            # Testcontainers + tracing disabled
 ```
 
 ---
@@ -277,41 +288,104 @@ Our CI pipeline runs on every push and PR with parallel jobs:
 **Backend Modules:** Java 25 · Spring Boot 4.0.4 · Spring Modulith 1.4.0 · Spring Security 7.0.0
 **Data:** PostgreSQL 17 · Liquibase 4.29.0 · Hibernate 7.2 · JPA
 **Resilience:** Resilience4j 2.3.0 · Bucket4j 8.6.0
-**Frontend:** Next.js 16 · React 19 · TypeScript 5.8 · Node.js 24 · Tailwind CSS · Recharts
+**Frontend:** Next.js 16 · React 19 · TypeScript 5.8 · Node.js 24 · pnpm 10 · Tailwind CSS · Recharts
 **AI:** Spring AI 2.0.0-M1 · Ollama (local) · OpenAI (cloud)
 **Testing:** JUnit 6.0.0 · Testcontainers 2.0.4 · Mockito 5.15.2 · AssertJ 3.27.3
-**Observability:** Micrometer 1.16.4 · OpenTelemetry 1.46.0 · Prometheus 3.3 · Grafana 12 · Tempo 2.7 · Loki 3.4
+**Observability:** Micrometer 1.16.4 · Micrometer Tracing 1.5.0 · OpenTelemetry 1.46.0 · OTel Collector 0.124 · Prometheus 3.3 · Grafana 12 · Tempo 2.7 · Loki 3.4
 
 ---
 
 ## 📊 Observability & Monitoring
 
-NeoBank includes a full LGT (Loki, Grafana, Tempo) monitoring stack with OpenTelemetry Collector.
+NeoBank includes a full LGT (Loki, Grafana, Tempo) monitoring stack with OpenTelemetry Collector and production health check scripts.
 
 ### Start Monitoring
 
 ```bash
 # Start the monitoring stack
 docker compose -f docker-compose-monitoring.yml up -d
+
+# Verify all services are healthy
+docker compose -f docker-compose-monitoring.yml ps
 ```
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Grafana | http://localhost:3003 | Dashboards (admin/admin123) |
-| Prometheus | http://localhost:9090 | Metrics scraping |
-| Tempo | http://localhost:3200 | Distributed trace storage |
-| Loki | http://localhost:3100 | Log aggregation |
-| OTel Collector | :4317 / :4318 | Receives traces from backend & frontend |
+| Service | URL | Credentials | Purpose |
+|---------|-----|-------------|---------|
+| Grafana | http://localhost:3003 | admin / admin123 | Unified dashboards |
+| Prometheus | http://localhost:9090 | — | Metrics scraping and storage |
+| Tempo | http://localhost:3200 | — | Distributed trace storage |
+| Loki | http://localhost:3100 | — | Log aggregation |
+| OTel Collector | :4317 (gRPC) / :4318 (HTTP) | — | Receives OTLP traces from backend & frontend |
+
+### Frontend Setup (pnpm + Next.js 16)
+
+The frontend requires **Node.js ≥ 24.14.1** and **pnpm ≥ 10**:
+
+```bash
+# Install pnpm globally (if not already installed)
+npm install -g pnpm
+
+# Install dependencies (all 4 frontend apps)
+cd apps/retail-app && pnpm install
+cd apps/staff-portal && pnpm install
+cd apps/admin-console && pnpm install
+
+# Run development server
+pnpm dev
+
+# Build for production
+pnpm build
+pnpm start
+```
+
+Frontend traces are sent to the OTel Collector via `src/instrumentation.ts` (OpenTelemetry NodeSDK). The `next.config.ts` proxies `/api/:path*` requests to the Reactive Gateway at `http://localhost:8080`.
+
+### Backend Tracing Configuration
+
+All backend modules export traces via OTLP. Configuration is in `application-observability.yml`:
+
+```yaml
+management:
+  tracing:
+    sampling:
+      probability: 1.0  # 100% sampling (reduce in production)
+  otlp:
+    tracing:
+      endpoint: http://otel-collector:4318/v1/traces
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+```
+
+Access actuator metrics at:
+- Health: `http://localhost:8080/actuator/health`
+- Info: `http://localhost:8080/actuator/info`
+- Prometheus: `http://localhost:8080/actuator/prometheus`
+- Metrics: `http://localhost:8080/actuator/metrics`
 
 ### Production Health Monitoring
 
 ```bash
 # One-time health check of all services
-./scripts/monitor-services.sh
+./scripts/check-system-health.sh
 
 # Continuous monitoring every 30 seconds
-./scripts/monitor-services.sh --watch 30
+./scripts/check-system-health.sh --watch 30
+
+# JSON-only output (for scripting/CI)
+./scripts/check-system-health.sh --json
+
+# Help
+./scripts/check-system-health.sh --help
 ```
+
+The health check script monitors:
+- **Core Services**: Frontend (:3000), Reactive Gateway (:8080)
+- **Downstream Services**: Auth (:8081), Onboarding (:8082), Core Banking (:8083), Lending (:8084), Cards (:8085), Fraud (:8086), Batch (:8087), Analytics (:8088)
+- **Observability Stack**: Prometheus (:9090), Grafana (:3003), Tempo (:3200), Loki (:3100), OTel Collector (:13133)
+
+If any service is DOWN, the script outputs a color-coded alert and prints a mock JSON payload simulating a Slack webhook notification. Set `SLACK_WEBHOOK_URL` to enable real alerts.
 
 ---
 
