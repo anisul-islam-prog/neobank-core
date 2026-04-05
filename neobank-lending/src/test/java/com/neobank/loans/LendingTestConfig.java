@@ -2,17 +2,16 @@ package com.neobank.loans;
 
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.persistence.autoconfigure.EntityScan;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
  * Minimal test configuration for Lending module slice tests.
- * Provides a modular test root that avoids scanning the main application class.
+ * Provides a @SpringBootConfiguration root for @WebMvcTest without JPA.
  */
 @SpringBootConfiguration
-@EnableAutoConfiguration
-@EntityScan("com.neobank.loans")
-@EnableJpaRepositories("com.neobank.loans")
+@EnableAutoConfiguration(exclude = {
+    org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration.class,
+    org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration.class
+})
 public class LendingTestConfig {
-    // No beans needed here; this just serves as a "Root" for the slice test
+    // No beans needed; serves as @SpringBootConfiguration root for slice tests
 }
