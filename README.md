@@ -12,32 +12,61 @@
 
 ## 🚀 Quick Start
 
+### Prerequisites
+- Java 21+ (Virtual Threads enabled)
+- Docker (for PostgreSQL and infrastructure)
+- Maven 3.9+
+
+### Start Infrastructure
 ```bash
-# Start infrastructure
+# Start PostgreSQL and other services
 docker-compose --profile dev up -d
 
-# Start monitoring stack (optional — see Observability section)
+# Start monitoring stack (optional)
 docker compose -f docker-compose-monitoring.yml up -d
-
-# Run backend (all modules)
-mvn spring-boot:run
-
-# Run frontend with pnpm (recommended)
-cd apps/retail-app && pnpm install && pnpm dev
-
-# Run frontend with npm (fallback)
-cd apps/retail-app && npm install && npm run dev
 ```
 
-**Access:**
-- Retail App: http://localhost:3000
-- Staff Portal: http://localhost:3001
-- Admin Console: http://localhost:3002
+### Run Backend (Spring Boot 3.5.13 LTS)
+
+**Note:** The project is being migrated from Spring Boot 4.0.4 to 3.5.13 LTS. Currently, **Gateway** and **Core Banking** modules are fully functional.
+
+```bash
+# Build working modules
+mvn clean install -pl neobank-gateway,neobank-core-banking -am -DskipTests
+
+# Run all available modules
+./run-all.sh
+
+# Run specific module
+./run-all.sh --module neobank-gateway
+./run-all.sh --module neobank-core-banking
+
+# Stop all running modules
+./run-all.sh --stop
+```
+
+**Available Services:**
+| Service | Port | Status |
+|---------|------|--------|
+| API Gateway | 8080 | ✅ Working |
+| Core Banking | 8083 | ✅ Working |
+| Auth | 8081 | 🟡 In Progress |
+| Onboarding | 8082 | 🔴 Pending |
+| Lending | 8084 | 🔴 Pending |
+| Cards | 8085 | 🔴 Pending |
+| Fraud | 8086 | 🔴 Pending |
+| Batch | 8087 | 🔴 Pending |
+| Analytics | 8088 | 🔴 Pending |
+
+**Access Points:**
 - API Gateway: http://localhost:8080
+- Core Banking API: http://localhost:8083
 - Swagger UI: http://localhost:8080/swagger-ui.html
+- Actuator Health: http://localhost:8080/actuator/health
 - Grafana Dashboards: http://localhost:3003 (admin/admin123)
 - Prometheus: http://localhost:9090
-- Tempo Traces: http://localhost:3200
+
+📖 **See [MIGRATION_REPORT.md](./MIGRATION_REPORT.md) for detailed migration progress and next steps.**
 
 ---
 

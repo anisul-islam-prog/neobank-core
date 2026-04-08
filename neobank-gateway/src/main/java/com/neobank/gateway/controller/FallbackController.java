@@ -45,4 +45,34 @@ public class FallbackController {
                 "service", "neobank-cards"
             ));
     }
+
+    @GetMapping("/onboarding")
+    public ResponseEntity<Map<String, Object>> onboardingFallback() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .body(Map.of(
+                "error", "Onboarding Service Temporarily Unavailable",
+                "message", "Please try again later",
+                "service", "neobank-onboarding"
+            ));
+    }
+
+    @GetMapping("/fraud")
+    public ResponseEntity<Map<String, Object>> fraudFallback() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .body(Map.of(
+                "error", "Fraud Detection Service Temporarily Unavailable",
+                "message", "Please try again later",
+                "service", "neobank-fraud"
+            ));
+    }
+
+    @GetMapping("/analytics")
+    public ResponseEntity<Map<String, Object>> analyticsFallback() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .body(Map.of(
+                "error", "Analytics Service Temporarily Unavailable",
+                "message", "Please try again later",
+                "service", "neobank-analytics"
+            ));
+    }
 }

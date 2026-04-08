@@ -25,11 +25,20 @@ public class RouteConfig {
     @Value("${neobank.gateway.routes.core-banking-uri:http://localhost:8083}")
     private String coreBankingUri;
 
-    @Value("${neobank.gateway.routes.lending-uri:http://localhost:8084}")
+    @Value("${neobank.gateway.routes.lending-uri:http://localhost:8082}")
     private String lendingUri;
 
-    @Value("${neobank.gateway.routes.cards-uri:http://localhost:8085}")
+    @Value("${neobank.gateway.routes.cards-uri:http://localhost:8084}")
     private String cardsUri;
+
+    @Value("${neobank.gateway.routes.fraud-uri:http://localhost:8085}")
+    private String fraudUri;
+
+    @Value("${neobank.gateway.routes.batch-uri:http://localhost:8086}")
+    private String batchUri;
+
+    @Value("${neobank.gateway.routes.analytics-uri:http://localhost:8087}")
+    private String analyticsUri;
 
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
@@ -55,6 +64,10 @@ public class RouteConfig {
                 .filters(f -> f
                     .stripPrefix(0)
                     .addResponseHeader("X-Service-Name", "neobank-onboarding")
+                    .circuitBreaker(config -> config
+                        .setName("onboardingCircuitBreaker")
+                        .setFallbackUri("forward:/fallback/onboarding")
+                    )
                     .retry(retryConfig -> retryConfig
                         .setRetries(2)
                         .setStatuses(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)
@@ -119,6 +132,59 @@ public class RouteConfig {
                     )
                 )
                 .uri(cardsUri)
+            )
+
+            // Fraud Detection Service Routes
+            .route("fraud-service", r -> r
+                .path("/api/fraud/**")
+                .filters(f -> f
+                    .stripPrefix(0)
+                    .addResponseHeader("X-Service-Name", "neobank-fraud")
+                    .circuitBreaker(config -> config
+                        .setName("fraudCircuitBreaker")
+                        .setFallbackUri("forward:/fallback/fraud")
+                    )
+                    .retry(retryConfig -> retryConfig
+                        .setRetries(2)
+                        .setStatuses(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)
+                        .setMethods(HttpMethod.GET, HttpMethod.POST)
+                    )
+                )
+                .uri(fraudUri)
+            )
+
+            // Batch Processing Service Routes
+            .route("batch-service", r -> r
+                .path("/api/batch/**")
+                .filters(f -> f
+                    .stripPrefix(0)
+                    .addResponseHeader("X-Service-Name", "neobank-batch")
+                    .retry(retryConfig -> retryConfig
+                        .setRetries(2)
+                        .setStatuses(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)
+                        .setMethods(HttpMethod.GET, HttpMethod.POST)
+                    )
+                )
+                .uri(batchUri)
+            )
+
+            // Analytics Service Routes
+            .route("analytics-service", r -> r
+                .path("/api/analytics/**")
+                .filters(f -> f
+                    .stripPrefix(0)
+                    .addResponseHeader("X-Service-Name", "neobank-analytics")
+                    .circuitBreaker(config -> config
+                        .setName("analyticsCircuitBreaker")
+                        .setFallbackUri("forward:/fallback/analytics")
+                    )
+                    .retry(retryConfig -> retryConfig
+                        .setRetries(2)
+                        .setStatuses(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)
+                        .setMethods(HttpMethod.GET, HttpMethod.POST)
+                    )
+                )
+                .uri(analyticsUri)
             )
 
             // Actuator Routes

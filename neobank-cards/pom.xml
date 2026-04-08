@@ -13,7 +13,7 @@
 
     <artifactId>neobank-cards</artifactId>
     <name>NeoBank Cards</name>
-    <description>Cards Module - Card lifecycle (schema_cards)</description>
+    <description>Cards Module - Card lifecycle, issuance, controls (schema_cards)</description>
 
     <dependencies>
         <!-- Internal Dependencies -->
@@ -25,13 +25,53 @@
             <groupId>com.neobank</groupId>
             <artifactId>neobank-core-banking</artifactId>
         </dependency>
+
+        <!-- Core Dependencies -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- OpenAPI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+
+        <!-- Resilience4j -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-rxjava3</artifactId>
+        </dependency>
+
+        <!-- Observability -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-otel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
         </dependency>
 
         <!-- Test Dependencies -->
@@ -41,13 +81,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -56,31 +91,36 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-junit-jupiter</artifactId>
-            <version>${testcontainers.version}</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.junit.jupiter</groupId>
-                    <artifactId>junit-jupiter-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.junit.platform</groupId>
-                    <artifactId>junit-platform-commons</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-postgresql</artifactId>
-            <version>${testcontainers.version}</version>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Plain JAR for other modules to depend on -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+            </plugin>
+            <!-- Spring Boot repackaged JAR (executable) with classifier -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>false</skip>
+                    <mainClass>com.neobank.cards.CardsApplication</mainClass>
+                    <classifier>exec</classifier>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

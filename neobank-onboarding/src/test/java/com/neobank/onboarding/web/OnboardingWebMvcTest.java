@@ -1,7 +1,7 @@
 package com.neobank.onboarding.web;
 
 import com.neobank.onboarding.OnboardingTestConfig;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 

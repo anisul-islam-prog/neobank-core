@@ -16,6 +16,17 @@
     <description>Analytics/BI Module - CQRS, Read-Optimized Tables (schema_analytics)</description>
 
     <dependencies>
+        <!-- Internal Dependencies -->
+        <dependency>
+            <groupId>com.neobank</groupId>
+            <artifactId>neobank-core-banking</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.neobank</groupId>
+            <artifactId>neobank-cards</artifactId>
+        </dependency>
+
+        <!-- Core Dependencies -->
         <dependency>
             <groupId>org.springframework.modulith</groupId>
             <artifactId>spring-modulith-starter-jpa</artifactId>
@@ -25,16 +36,32 @@
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.neobank</groupId>
-            <artifactId>neobank-core-banking</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.neobank</groupId>
-            <artifactId>neobank-cards</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- OpenAPI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+
+        <!-- Observability -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-otel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
         </dependency>
 
         <!-- Test Dependencies -->
@@ -50,36 +77,34 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-junit-jupiter</artifactId>
-            <version>${testcontainers.version}</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.junit.jupiter</groupId>
-                    <artifactId>junit-jupiter-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.junit.platform</groupId>
-                    <artifactId>junit-platform-commons</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-postgresql</artifactId>
-            <version>${testcontainers.version}</version>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- Plain JAR for other modules to depend on -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+            </plugin>
+            <!-- Spring Boot repackaged JAR (executable) with classifier -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <skip>false</skip>
+                    <mainClass>com.neobank.analytics.AnalyticsApplication</mainClass>
+                    <classifier>exec</classifier>
                 </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
