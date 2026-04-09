@@ -1,8 +1,17 @@
 # Test configuration for Cards module
 spring:
+  main:
+    allow-bean-definition-overriding: true
+    autoconfigure:
+      exclude:
+        - org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration
+        - org.springframework.boot.actuate.autoconfigure.micrometer.MicrometerAutoConfiguration
   datasource:
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
-    initialization-mode: always
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:init-schema.sql
   jpa:
     hibernate:
       ddl-auto: create

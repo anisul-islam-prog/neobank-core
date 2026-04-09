@@ -2,8 +2,8 @@ package com.neobank.cards.web;
 
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
-import org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 
 /**
@@ -24,7 +24,7 @@ import org.springframework.context.annotation.ComponentScan;
 @SpringBootConfiguration
 @EnableAutoConfiguration(exclude = {
     DataSourceAutoConfiguration.class,
-    DataJpaRepositoriesAutoConfiguration.class
+    JpaRepositoriesAutoConfiguration.class
 })
 @ComponentScan(basePackageClasses = CardController.class)
 public class CardsWebMvcTestBootConfig {
