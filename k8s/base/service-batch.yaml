@@ -1,0 +1,20 @@
+# =============================================================================
+# NeoBank Batch — Service (Internal ClusterIP)
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: neobank-batch
+  namespace: neobank
+  labels:
+    app.kubernetes.io/name: neobank-batch
+    app.kubernetes.io/component: batch
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8087
+      targetPort: 8087
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: neobank-batch

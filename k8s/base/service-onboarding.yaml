@@ -1,0 +1,20 @@
+# =============================================================================
+# NeoBank Onboarding — Service (Internal ClusterIP)
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: neobank-onboarding
+  namespace: neobank
+  labels:
+    app.kubernetes.io/name: neobank-onboarding
+    app.kubernetes.io/component: onboarding
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: neobank-onboarding

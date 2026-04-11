@@ -1,0 +1,35 @@
+# =============================================================================
+# NeoBank — Kustomization (Base)
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: neobank
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - deployment-gateway.yaml
+  - deployment-auth.yaml
+  - deployment-onboarding.yaml
+  - deployment-core-banking.yaml
+  - deployment-lending.yaml
+  - deployment-cards.yaml
+  - deployment-fraud.yaml
+  - deployment-batch.yaml
+  - deployment-analytics.yaml
+  - service-gateway.yaml
+  - service-auth.yaml
+  - service-onboarding.yaml
+  - service-core-banking.yaml
+  - service-lending.yaml
+  - service-cards.yaml
+  - service-fraud.yaml
+  - service-batch.yaml
+  - service-analytics.yaml
+  - ingress.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: neobank
+  app.kubernetes.io/managed-by: kustomize

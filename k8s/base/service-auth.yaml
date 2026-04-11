@@ -1,0 +1,20 @@
+# =============================================================================
+# NeoBank Auth — Service (Internal ClusterIP)
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: neobank-auth
+  namespace: neobank
+  labels:
+    app.kubernetes.io/name: neobank-auth
+    app.kubernetes.io/component: auth
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: neobank-auth

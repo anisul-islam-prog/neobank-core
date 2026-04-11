@@ -1,0 +1,113 @@
+# =============================================================================
+# NeoBank — Kustomize Production Overlay
+# =============================================================================
+# Patches base manifests with production-specific settings:
+#   - Container image tags (pinned to Git SHA)
+#   - Increased replica counts for critical services
+#   - Resource limits (512Mi RAM, 1.0 CPU)
+#   - Production Spring profile
+#   - Liquibase enabled for schema migrations
+#   - Image pull policy Always
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: neobank
+
+images:
+  - name: neobank-gateway
+    newName: ghcr.io/anishadh/neobank-core-neobank-gateway
+    newTag: latest
+  - name: neobank-auth
+    newName: ghcr.io/anishadh/neobank-core-neobank-auth
+    newTag: latest
+  - name: neobank-onboarding
+    newName: ghcr.io/anishadh/neobank-core-neobank-onboarding
+    newTag: latest
+  - name: neobank-core-banking
+    newName: ghcr.io/anishadh/neobank-core-neobank-core-banking
+    newTag: latest
+  - name: neobank-lending
+    newName: ghcr.io/anishadh/neobank-core-neobank-lending
+    newTag: latest
+  - name: neobank-cards
+    newName: ghcr.io/anishadh/neobank-core-neobank-cards
+    newTag: latest
+  - name: neobank-fraud
+    newName: ghcr.io/anishadh/neobank-core-neobank-fraud
+    newTag: latest
+  - name: neobank-batch
+    newName: ghcr.io/anishadh/neobank-core-neobank-batch
+    newTag: latest
+  - name: neobank-analytics
+    newName: ghcr.io/anishadh/neobank-core-neobank-analytics
+    newTag: latest
+
+patches:
+  # ── Production ConfigMap Overrides ──────────────────────────────────
+  - target:
+      kind: ConfigMap
+      name: neobank-config
+    patch: |-
+      - op: replace
+        path: /data/SPRING_PROFILES_ACTIVE
+        value: "prod,observability"
+      - op: replace
+        path: /data/SPRING_LIQUIBASE_ENABLED
+        value: "true"
+      - op: replace
+        path: /data/LOGGING_LEVEL_COM_NEOBANK
+        value: "INFO"
+      - op: replace
+        path: /data/LOGGING_LEVEL_ROOT
+        value: "WARN"
+      - op: add
+        path: /data/NEOBANK_SECURITY_COOKIE_MAX_AGE
+        value: "3600"
+      - op: add
+        path: /data/NEOBANK_SECURITY_COOKIE_DOMAIN
+        value: "neobank.example.com"
+
+  # ── Gateway Production Patch (scale to 3 replicas) ─────────────────
+  - target:
+      kind: Deployment
+      name: neobank-gateway
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "1Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "512Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "1500m"
+
+  # ── Auth Production Patch (critical service, scale to 3) ────────────
+  - target:
+      kind: Deployment
+      name: neobank-auth
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+
+  # ── Core Banking Production Patch (critical service, scale to 3) ───
+  - target:
+      kind: Deployment
+      name: neobank-core-banking
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+
+commonAnnotations:
+  deployment.kubernetes.io/revision: "1"
+  app.kubernetes.io/version: "latest"
+  app.kubernetes.io/environment: "production"

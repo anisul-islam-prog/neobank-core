@@ -1,0 +1,60 @@
+# =============================================================================
+# NeoBank — Common ConfigMap
+# Shared configuration across all microservices
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: neobank-config
+  namespace: neobank
+  labels:
+    app.kubernetes.io/part-of: neobank
+data:
+  # ── Spring Profile ──────────────────────────────────────────────────
+  SPRING_PROFILES_ACTIVE: "prod"
+
+  # ── Database ────────────────────────────────────────────────────────
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://neobank-postgres:5432/neobank"
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: "org.postgresql.Driver"
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
+  SPRING_JPA_OPEN_IN_VIEW: "false"
+  SPRING_JPA_PROPERTIES_HIBERNATE_JDBC_TIME_ZONE: "UTC"
+
+  # ── Liquibase (disabled by default; enable via overlay for prod) ────
+  SPRING_LIQUIBASE_ENABLED: "false"
+
+  # ── OpenTelemetry Collector Endpoint ────────────────────────────────
+  MANAGEMENT_OTLP_TRACING_ENDPOINT: "http://otel-collector.observability.svc.cluster.local:4318/v1/traces"
+  MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+
+  # ── Virtual Threads ─────────────────────────────────────────────────
+  SPRING_THREADS_VIRTUAL_ENABLED: "true"
+
+  # ── JVM Options ─────────────────────────────────────────────────────
+  JAVA_OPTS: >-
+    -XX:+UseContainerSupport
+    -XX:MaxRAMPercentage=75.0
+    -XX:+UseVirtualThreads
+    -XX:+ExitOnOutOfMemoryError
+
+  # ── Gateway Route URIs (internal Kubernetes DNS) ───────────────────
+  NEOBANK_GATEWAY_ROUTES_AUTH_URI: "http://neobank-auth.neobank.svc.cluster.local:8081"
+  NEOBANK_GATEWAY_ROUTES_ONBOARDING_URI: "http://neobank-onboarding.neobank.svc.cluster.local:8082"
+  NEOBANK_GATEWAY_ROUTES_CORE_BANKING_URI: "http://neobank-core-banking.neobank.svc.cluster.local:8083"
+  NEOBANK_GATEWAY_ROUTES_LENDING_URI: "http://neobank-lending.neobank.svc.cluster.local:8084"
+  NEOBANK_GATEWAY_ROUTES_CARDS_URI: "http://neobank-cards.neobank.svc.cluster.local:8085"
+  NEOBANK_GATEWAY_ROUTES_FRAUD_URI: "http://neobank-fraud.neobank.svc.cluster.local:8086"
+  NEOBANK_GATEWAY_ROUTES_BATCH_URI: "http://neobank-batch.neobank.svc.cluster.local:8087"
+  NEOBANK_GATEWAY_ROUTES_ANALYTICS_URI: "http://neobank-analytics.neobank.svc.cluster.local:8088"
+
+  # ── JWT Issuer (Auth service internal URL) ─────────────────────────
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: "http://neobank-auth.neobank.svc.cluster.local:8081"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: "http://neobank-auth.neobank.svc.cluster.local:8081/.well-known/jwks.json"
+
+  # ── Spring AI — Ollama (local model, disabled in prod) ─────────────
+  SPRING_AI_OLLAMA_CHAT_ENABLED: "false"
+
+  # ── Logging ─────────────────────────────────────────────────────────
+  LOGGING_LEVEL_COM_NEOBANK: "INFO"
+  LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY: "WARN"
+  LOGGING_LEVEL_ROOT: "INFO"
