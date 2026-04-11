@@ -1,0 +1,33 @@
+# =============================================================================
+# NeoBank Auth — Prod Profile
+# =============================================================================
+spring.jpa.hibernate.ddl-auto: validate
+spring.jpa.show-sql: false
+spring.jpa.properties.hibernate.format_sql: false
+spring.jpa.open-in-view: false
+
+spring.datasource.hikari.maximum-pool-size: 20
+spring.datasource.hikari.minimum-idle: 5
+spring.datasource.hikari.connection-timeout: 30000
+spring.datasource.hikari.idle-timeout: 600000
+spring.datasource.hikari.max-lifetime: 1800000
+spring.datasource.hikari.leak-detection-threshold: 60000
+
+spring.liquibase.enabled: true
+spring.liquibase.change-log: classpath:db/changelog/auth-changelog.xml
+
+# JWT — must be overridden via Secret in production
+neobank.auth.jwt.expiration: 3600000
+neobank.auth.jwt.refresh-expiration: 604800000
+
+spring.security.oauth2.resourceserver.jwt.issuer-uri: http://neobank-auth:8081
+spring.security.oauth2.resourceserver.jwt.jwk-set-uri: http://neobank-auth:8081/.well-known/jwks.json
+
+logging.level.com.neobank.auth: INFO
+logging.level.org.springframework.security: WARN
+logging.level.root: WARN
+
+management.tracing.enabled: true
+management.tracing.sampling.probability: 0.1
+management.endpoints.web.exposure.include: health,info,prometheus,metrics
+management.endpoint.health.show-details: always

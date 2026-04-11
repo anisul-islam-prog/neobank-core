@@ -15,8 +15,8 @@
 ## Quick Start (3 Steps)
 
 ```bash
-# Step 1 — Start infrastructure (PostgreSQL, Ollama)
-docker-compose up -d
+# Step 1 — Start infrastructure (PostgreSQL)
+docker compose --profile dev up -d
 
 # Step 2 — Build & test all 9 modules
 mvn clean install
@@ -26,6 +26,90 @@ mvn clean install
 ```
 
 All services healthy in ~60 seconds. See [Service Port Map](#service-port-map) for access points.
+
+---
+
+## Running Environments
+
+NeoBank supports four environment profiles, each optimized for a specific use case:
+
+| Profile | Purpose | Infrastructure | Seed Data | AI Provider |
+|---------|---------|---------------|-----------|-------------|
+| **dev** | Local development | PostgreSQL only | ❌ | Ollama (local) |
+| **test** | Integration testing | PostgreSQL + LGT Stack | ❌ | Ollama (local) |
+| **demo** | Presentations & showcases | PostgreSQL + Ollama + LGT Stack | ✅ (50+ users, 200+ txns, 15 loans) | Ollama (local) |
+| **prod** | Production (Kubernetes) | Managed DB + K8s secrets | ❌ | OpenAI (cloud) |
+
+### Development (dev)
+
+Lightweight setup for coding and unit testing:
+
+```bash
+# Start only PostgreSQL
+docker compose --profile dev up -d
+
+# Run services with dev profile
+SPRING_PROFILES_ACTIVE=dev ./run-all.sh
+```
+
+- Hot-reload enabled (Spring Boot DevTools)
+- `ddl-auto: update` — schema auto-creates on first run
+- DEBUG logging for all modules
+- Tracing disabled (reduced overhead)
+
+### Integration Testing (test)
+
+Full system with observability:
+
+```bash
+# Start PostgreSQL + Grafana, Prometheus, Tempo, Loki
+docker compose --profile test up -d
+
+# Run services with test profile
+SPRING_PROFILES_ACTIVE=test ./run-all.sh
+```
+
+- Full LGT monitoring stack
+- Grafana dashboards: http://localhost:3000 (`admin` / `admin123`)
+- Prometheus: http://localhost:9090
+- Distributed traces in Tempo: http://localhost:3200
+
+### Demo / Showcase (demo)
+
+Pre-loaded with realistic data for presentations:
+
+```bash
+# Start everything: PostgreSQL + Ollama + full observability + seed data
+docker compose --profile demo up -d
+
+# Run services with demo profile
+SPRING_PROFILES_ACTIVE=demo ./run-all.sh
+```
+
+- **50+ customers** with realistic names and balances
+- **200+ transactions** across categories (salary, rent, shopping, etc.)
+- **15 loan applications** with AI risk assessments (8 approved)
+- **50+ payment cards** (virtual + physical)
+- **KYC records** for all customers
+- **30 fraud analysis** records with risk scores
+- **10 high-value transactions** in Maker-Checker queue
+
+### Production (prod)
+
+Security-hardened for Kubernetes deployment:
+
+```bash
+# Via CI/CD: push to main → build → deploy to K8s
+# Or manually:
+kubectl apply -k k8s/overlays/prod
+```
+
+- `ddl-auto: validate` — never auto-modify schema
+- HikariCP connection pooling (strict limits)
+- Liquibase manages migrations
+- Structured WARN-level logging
+- Full OpenTelemetry tracing (0.1% sampling)
+- Secrets via Kubernetes Secret objects
 
 ---
 

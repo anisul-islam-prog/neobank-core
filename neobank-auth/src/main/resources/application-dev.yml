@@ -1,0 +1,33 @@
+# =============================================================================
+# NeoBank Auth — Dev Profile
+# =============================================================================
+spring.devtools.restart.enabled: true
+spring.devtools.livereload.enabled: true
+
+spring.datasource.url: jdbc:postgresql://localhost:5432/neobank
+spring.datasource.username: postgres
+spring.datasource.password: postgres
+spring.datasource.driver-class-name: org.postgresql.Driver
+spring.jpa.hibernate.ddl-auto: update
+spring.jpa.show-sql: true
+spring.jpa.properties.hibernate.format_sql: true
+spring.jpa.open-in-view: false
+
+spring.liquibase.enabled: false
+spring.liquibase.change-log: classpath:db/changelog/auth-changelog.xml
+
+# Dev JWT (weak secret is fine for local dev)
+neobank.auth.jwt.secret: dev-secret-change-me-for-production-only
+neobank.auth.jwt.expiration: 3600000
+neobank.auth.jwt.refresh-expiration: 604800000
+
+spring.security.oauth2.resourceserver.jwt.issuer-uri: http://localhost:8081
+spring.security.oauth2.resourceserver.jwt.jwk-set-uri: http://localhost:8081/.well-known/jwks.json
+
+logging.level.com.neobank.auth: DEBUG
+logging.level.org.springframework.security: DEBUG
+logging.level.root: INFO
+
+management.tracing.enabled: false
+management.tracing.sampling.probability: 0.0
+management.otlp.tracing.endpoint: http://localhost:4318/v1/traces

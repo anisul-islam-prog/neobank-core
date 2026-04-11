@@ -1,0 +1,16 @@
+# NeoBank Onboarding — Demo Profile
+spring.datasource.url: jdbc:postgresql://localhost:5432/neobank
+spring.datasource.username: postgres
+spring.datasource.password: postgres
+spring.jpa.hibernate.ddl-auto: update
+spring.jpa.show-sql: false
+spring.jpa.properties.hibernate.format_sql: true
+spring.jpa.properties.hibernate.default_schema: schema_onboarding
+spring.liquibase.enabled: false
+logging.level.com.neobank.onboarding: INFO
+logging.level.root: INFO
+management.tracing.enabled: true
+management.tracing.sampling.probability: 1.0
+management.endpoints.web.exposure.include: health,info,prometheus,metrics
+management.endpoint.health.show-details: always
+neobank.demo.seed.enabled: true

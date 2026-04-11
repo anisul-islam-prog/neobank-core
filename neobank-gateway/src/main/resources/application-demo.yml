@@ -1,0 +1,50 @@
+# =============================================================================
+# NeoBank Gateway — Demo Profile
+# =============================================================================
+# Showcase configuration: local services, seed data loading enabled,
+# full logging for live demonstrations.
+# Activate: --spring.profiles.active=demo
+# =============================================================================
+
+# Local PostgreSQL with auto-update
+spring.datasource.url: jdbc:postgresql://localhost:5432/neobank
+spring.datasource.username: postgres
+spring.datasource.password: postgres
+spring.jpa.hibernate.ddl-auto: update
+spring.jpa.show-sql: false
+spring.jpa.properties.hibernate.format_sql: true
+
+# Liquibase disabled (Hibernate manages schema)
+spring.liquibase.enabled: false
+
+# Verbose logging for demo visibility
+logging.level.com.neobank.gateway: INFO
+logging.level.org.springframework.cloud.gateway: INFO
+logging.level.org.springframework.security: INFO
+logging.level.root: INFO
+
+# Observability enabled for demo dashboards
+management.tracing.enabled: true
+management.tracing.sampling.probability: 1.0
+management.endpoints.web.exposure.include: health,info,prometheus,metrics,circuitbreakers
+management.endpoint.health.show-details: always
+
+# Local gateway routes
+neobank.gateway.routes.auth-uri: http://localhost:8081
+neobank.gateway.routes.onboarding-uri: http://localhost:8082
+neobank.gateway.routes.core-banking-uri: http://localhost:8083
+neobank.gateway.routes.lending-uri: http://localhost:8084
+neobank.gateway.routes.cards-uri: http://localhost:8085
+neobank.gateway.routes.fraud-uri: http://localhost:8086
+neobank.gateway.routes.batch-uri: http://localhost:8087
+neobank.gateway.routes.analytics-uri: http://localhost:8088
+
+# JWT issuer (local)
+spring.security.oauth2.resourceserver.jwt.issuer-uri: http://localhost:8081
+spring.security.oauth2.resourceserver.jwt.jwk-set-uri: http://localhost:8081/.well-known/jwks.json
+
+# Demo: enable seed data loading
+neobank.demo.seed.enabled: true
+neobank.demo.seed.customers: 50
+neobank.demo.seed.transactions: 200
+neobank.demo.seed.loans: 15

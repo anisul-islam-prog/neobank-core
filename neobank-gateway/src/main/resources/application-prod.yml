@@ -1,0 +1,56 @@
+# =============================================================================
+# NeoBank Gateway — Prod Profile
+# =============================================================================
+# Production-hardened config: validate schema, connection pooling,
+# structured logging, and full observability.
+# Activate: --spring.profiles.active=prod
+# =============================================================================
+
+# Schema validation only — never auto-modify in production
+spring.jpa.hibernate.ddl-auto: validate
+spring.jpa.show-sql: false
+spring.jpa.properties.hibernate.format_sql: false
+
+# HikariCP connection pooling (production tuned)
+spring.datasource.hikari.maximum-pool-size: 20
+spring.datasource.hikari.minimum-idle: 5
+spring.datasource.hikari.connection-timeout: 30000
+spring.datasource.hikari.idle-timeout: 600000
+spring.datasource.hikari.max-lifetime: 1800000
+spring.datasource.hikari.leak-detection-threshold: 60000
+
+# Liquibase manages schema migrations in production
+spring.liquibase.enabled: true
+
+# Structured, concise logging
+logging.level.com.neobank.gateway: INFO
+logging.level.org.springframework.cloud.gateway: WARN
+logging.level.org.springframework.security: WARN
+logging.level.root: WARN
+
+# Full observability (Prometheus + OpenTelemetry)
+management.tracing.enabled: true
+management.tracing.sampling.probability: 0.1
+management.endpoints.web.exposure.include: health,info,prometheus,metrics,circuitbreakers,circuitbreakerevents
+management.endpoint.health.show-details: always
+
+# Security hardening
+neobank.security.cookie.secure: true
+neobank.security.cookie.http-only: true
+neobank.security.cookie.same-site: Strict
+neobank.security.cookie.max-age: 3600
+neobank.security.cookie.domain: neobank.example.com
+
+# Gateway routes point to Kubernetes internal DNS (override via ConfigMap)
+neobank.gateway.routes.auth-uri: http://neobank-auth:8081
+neobank.gateway.routes.onboarding-uri: http://neobank-onboarding:8082
+neobank.gateway.routes.core-banking-uri: http://neobank-core-banking:8083
+neobank.gateway.routes.lending-uri: http://neobank-lending:8084
+neobank.gateway.routes.cards-uri: http://neobank-cards:8085
+neobank.gateway.routes.fraud-uri: http://neobank-fraud:8086
+neobank.gateway.routes.batch-uri: http://neobank-batch:8087
+neobank.gateway.routes.analytics-uri: http://neobank-analytics:8088
+
+# JWT issuer (production)
+spring.security.oauth2.resourceserver.jwt.issuer-uri: http://neobank-auth:8081
+spring.security.oauth2.resourceserver.jwt.jwk-set-uri: http://neobank-auth:8081/.well-known/jwks.json

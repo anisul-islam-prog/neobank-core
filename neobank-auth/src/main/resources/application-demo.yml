@@ -1,0 +1,33 @@
+# =============================================================================
+# NeoBank Auth — Demo Profile
+# =============================================================================
+spring.datasource.url: jdbc:postgresql://localhost:5432/neobank
+spring.datasource.username: postgres
+spring.datasource.password: postgres
+spring.datasource.driver-class-name: org.postgresql.Driver
+spring.jpa.hibernate.ddl-auto: update
+spring.jpa.show-sql: false
+spring.jpa.properties.hibernate.format_sql: true
+spring.jpa.open-in-view: false
+
+spring.liquibase.enabled: false
+spring.liquibase.change-log: classpath:db/changelog/auth-changelog.xml
+
+neobank.auth.jwt.secret: demo-secret-do-not-use-in-production
+neobank.auth.jwt.expiration: 3600000
+neobank.auth.jwt.refresh-expiration: 604800000
+
+spring.security.oauth2.resourceserver.jwt.issuer-uri: http://localhost:8081
+spring.security.oauth2.resourceserver.jwt.jwk-set-uri: http://localhost:8081/.well-known/jwks.json
+
+logging.level.com.neobank.auth: INFO
+logging.level.org.springframework.security: INFO
+logging.level.root: INFO
+
+management.tracing.enabled: true
+management.tracing.sampling.probability: 1.0
+management.endpoints.web.exposure.include: health,info,prometheus,metrics
+management.endpoint.health.show-details: always
+
+# Demo seed data
+neobank.demo.seed.enabled: true

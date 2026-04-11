@@ -1,0 +1,17 @@
+# NeoBank Cards — Prod Profile
+spring.jpa.hibernate.ddl-auto: validate
+spring.jpa.show-sql: false
+spring.jpa.properties.hibernate.format_sql: false
+spring.jpa.properties.hibernate.default_schema: schema_cards
+spring.datasource.hikari.maximum-pool-size: 15
+spring.datasource.hikari.minimum-idle: 3
+spring.datasource.hikari.connection-timeout: 30000
+spring.datasource.hikari.idle-timeout: 600000
+spring.datasource.hikari.max-lifetime: 1800000
+spring.liquibase.enabled: true
+logging.level.com.neobank.cards: INFO
+logging.level.root: WARN
+management.tracing.enabled: true
+management.tracing.sampling.probability: 0.1
+management.endpoints.web.exposure.include: health,info,prometheus,metrics
+management.endpoint.health.show-details: always

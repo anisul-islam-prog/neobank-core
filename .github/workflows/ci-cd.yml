@@ -1,8 +1,9 @@
 # =============================================================================
 # NeoBank - Production CI/CD Pipeline
 # =============================================================================
-# Stages: Build → Test → Docker → Security Scan → Deploy
-# Triggered on: push to main, PRs to main, manual dispatch
+# Stages: Build → Test → Docker → Security Scan → Deploy (manual only)
+# Triggered on: push to main (build/test/docker/scan), PRs to main (build/test)
+# Deploy stage: available via workflow_dispatch with staging/production choice
 # =============================================================================
 
 name: NeoBank CI/CD
@@ -15,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Target environment'
+        description: 'Target environment for deployment'
         required: true
         default: 'staging'
         type: choice
@@ -38,6 +39,7 @@ permissions:
   packages: write
   security-events: write
   actions: read
+  id-token: write
 
 jobs:
   # ========================================================================
@@ -230,16 +232,20 @@ jobs:
           echo "Status: Scan completed. Check the Security tab for details." >> $GITHUB_STEP_SUMMARY
 
   # ========================================================================
-  # STAGE 4: Deploy to Environment (manual trigger or auto on main)
+  # STAGE 4: Deploy to Environment (MANUAL via workflow_dispatch only)
+  # ========================================================================
+  # NOTE: This stage is NOT triggered on push/PR. It only runs when you
+  # manually dispatch the workflow and select an environment.
+  # Requires: KUBE_CONFIG secret (base64-encoded kubeconfig)
   # ========================================================================
   deploy:
-    name: "Deploy to ${{ inputs.environment || 'staging' }}"
+    name: "Deploy to ${{ inputs.environment }}"
     runs-on: ubuntu-latest
     needs: [ docker-build, security-scan ]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch'
     timeout-minutes: 30
     environment:
-      name: ${{ inputs.environment || 'staging' }}
+      name: ${{ inputs.environment }}
       url: https://neobank.example.com
 
     steps:
@@ -257,10 +263,10 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
         shell: bash
 
-      - name: Apply Kustomize Production Overlay
+      - name: Apply Kustomize Overlay
         run: |
-          echo "Deploying NeoBank services to ${{ inputs.environment || 'staging' }}..."
-          kubectl apply -k k8s/overlays/${{ inputs.environment || 'staging' }}
+          echo "Deploying NeoBank services to ${{ inputs.environment }}..."
+          kubectl apply -k k8s/overlays/${{ inputs.environment }}
 
       - name: Wait for Critical Services
         run: |
@@ -286,6 +292,6 @@ jobs:
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment:** ${{ inputs.environment || 'staging' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Images:** \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-neobank-*:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY

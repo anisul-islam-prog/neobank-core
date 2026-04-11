@@ -1,0 +1,21 @@
+# NeoBank Batch — Prod Profile
+spring.jpa.hibernate.ddl-auto: validate
+spring.jpa.show-sql: false
+spring.jpa.properties.hibernate.format_sql: false
+spring.jpa.properties.hibernate.default_schema: schema_core
+spring.datasource.hikari.maximum-pool-size: 10
+spring.datasource.hikari.minimum-idle: 2
+spring.datasource.hikari.connection-timeout: 30000
+spring.datasource.hikari.idle-timeout: 600000
+spring.datasource.hikari.max-lifetime: 1800000
+spring.liquibase.enabled: true
+# Spring Batch — controlled job execution
+spring.batch.job.enabled: true
+spring.batch.jdbc.initialize-schema: never
+logging.level.com.neobank.batch: INFO
+logging.level.org.springframework.batch: INFO
+logging.level.root: WARN
+management.tracing.enabled: true
+management.tracing.sampling.probability: 0.1
+management.endpoints.web.exposure.include: health,info,prometheus,metrics,batch
+management.endpoint.health.show-details: always

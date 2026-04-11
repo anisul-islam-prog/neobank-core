@@ -3,10 +3,20 @@
 # =============================================================================
 # Infrastructure services for local development.
 # Backend modules run via Maven (./run-all.sh), not Docker.
-# For production, see: k8s/overlays/prod (Kubernetes Kustomize)
+#
+# Profile Quick Reference:
+#   dev   — PostgreSQL only (local-first development)
+#   test  — PostgreSQL + Observability stack (integration testing)
+#   demo  — PostgreSQL + Ollama + Observability (showcase with seed data)
+#
+# Usage:
+#   docker compose --profile dev up -d
+#   docker compose --profile test up -d
+#   docker compose --profile demo up -d
 # =============================================================================
 
 services:
+  # ── PostgreSQL — Required for all profiles ─────────────────────────────
   postgres:
     image: postgres:17-alpine
     container_name: neobank-postgres
@@ -18,14 +28,22 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Seed data for demo profile (loaded when PostgreSQL initializes)
+      - ./neobank-core-banking/src/main/resources/db/seed-data.sql:/docker-entrypoint-initdb.d/seed-data.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+    # Always available across all profiles
+    profiles:
+      - dev
+      - test
+      - demo
     networks:
       - neobank-network
 
+  # ── Ollama — AI models for demo/showcase ───────────────────────────────
   ollama:
     image: ollama/ollama:latest
     container_name: neobank-ollama
@@ -40,19 +58,11 @@ services:
       retries: 5
       start_period: 120s
     profiles:
-      - dev
-      - test
       - demo
     networks:
       - neobank-network
 
-  # ── NOTE: The monolith "backend" service has been replaced by 9 per-service
-  #     Docker images in docker/<service>/Dockerfile and K8s manifests in k8s/.
-  #     For local dev, use: ./run-all.sh (starts all 9 modules via Maven).
-  #     For production, use: kubectl apply -k k8s/overlays/prod
-  #
-  #     Legacy root Dockerfile deleted. See DEPLOYMENT_GUIDE.md for details.
-
+  # ── Frontend (optional — runs alongside any profile) ───────────────────
   frontend:
     build:
       context: ./frontend
@@ -74,15 +84,11 @@ services:
       start_period: 30s
     profiles:
       - test
-      - prod
       - demo
     networks:
       - neobank-network
 
-# =============================================================================
-# Observability Stack (Prometheus, Grafana, Tempo, Loki)
-# =============================================================================
-
+  # ── Prometheus — Metrics (test + demo) ─────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.54.1
     container_name: neobank-prometheus
@@ -98,7 +104,8 @@ services:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     profiles:
-      - observability
+      - test
+      - demo
     networks:
       - neobank-network
     healthcheck:
@@ -107,6 +114,7 @@ services:
       timeout: 10s
       retries: 3
 
+  # ── Grafana — Dashboards (test + demo) ─────────────────────────────────
   grafana:
     image: grafana/grafana:11.3.0
     container_name: neobank-grafana
@@ -126,7 +134,8 @@ services:
       - tempo
       - loki
     profiles:
-      - observability
+      - test
+      - demo
     networks:
       - neobank-network
     healthcheck:
@@ -135,6 +144,7 @@ services:
       timeout: 10s
       retries: 3
 
+  # ── Tempo — Distributed Traces (test + demo) ───────────────────────────
   tempo:
     image: grafana/tempo:2.6.1
     container_name: neobank-tempo
@@ -147,7 +157,8 @@ services:
       - ./observability/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
       - tempo_data:/tmp/tempo
     profiles:
-      - observability
+      - test
+      - demo
     networks:
       - neobank-network
     healthcheck:
@@ -156,6 +167,7 @@ services:
       timeout: 10s
       retries: 3
 
+  # ── Loki — Log Aggregation (test + demo) ───────────────────────────────
   loki:
     image: grafana/loki:2.9.8
     container_name: neobank-loki
@@ -166,7 +178,8 @@ services:
       - ./observability/loki/loki.yml:/etc/loki/loki.yml:ro
       - loki_data:/loki
     profiles:
-      - observability
+      - test
+      - demo
     networks:
       - neobank-network
     healthcheck:
@@ -175,6 +188,7 @@ services:
       timeout: 10s
       retries: 3
 
+  # ── Promtail — Log Shipper (test + demo) ───────────────────────────────
   promtail:
     image: grafana/promtail:2.9.8
     container_name: neobank-promtail
@@ -185,7 +199,8 @@ services:
     depends_on:
       - loki
     profiles:
-      - observability
+      - test
+      - demo
     networks:
       - neobank-network
 
