@@ -4,6 +4,73 @@ Your complete guide to operating NeoBank's banking platform.
 
 ---
 
+---
+
+## 🔑 Quick API Reference — Essential Flows
+
+### 1. Authenticate via `/api/auth/login`
+
+```bash
+# Register a new user (public endpoint)
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"jane_doe","email":"jane@example.com","password":"SecurePass123!"}'
+
+# Login to get JWT token
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"customer_john","password":"demo123!"}' \
+  | jq -r '.token')
+
+echo "Token: $TOKEN"
+```
+
+### 2. Apply for an AI-Powered Loan via `/api/lending/apply`
+
+```bash
+# Check your credit score first
+curl -s http://localhost:8080/api/loans/credit-score \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# Submit loan application (AI risk assessment runs automatically)
+curl -s -X POST http://localhost:8080/api/loans/apply \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "amount": 15000,
+    "termMonths": 36,
+    "purpose": "HOME_IMPROVEMENT",
+    "annualIncome": 85000,
+    "employmentYears": 4,
+    "monthlyDebt": 2000
+  }' | jq
+
+# Check loan status
+curl -s http://localhost:8080/api/loans \
+  -H "Authorization: Bearer $TOKEN" | jq
+```
+
+### 3. System-Wide Health via the Gateway
+
+```bash
+# Gateway health (single endpoint check)
+curl -s http://localhost:8080/actuator/health | jq
+
+# Detailed health of all downstream services
+curl -s http://localhost:8080/actuator/health | jq '.components'
+
+# Circuit breaker states for all gateway routes
+curl -s http://localhost:8080/actuator/circuitbreakers | jq
+
+# Prometheus metrics snapshot
+curl -s http://localhost:8080/actuator/prometheus | head -20
+
+# Full system health check (all 9 services + observability)
+./scripts/check-system-health.sh
+```
+
+---
+
 ## Table of Contents
 
 ### For Customers

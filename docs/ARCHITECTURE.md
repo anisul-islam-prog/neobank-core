@@ -19,6 +19,81 @@ This document contains the technical architecture, development roadmap, and impl
 
 ---
 
+---
+
+## Strategic Decoupling: 9-Module Architecture
+
+NeoBank's architecture follows a **"Strategic Decoupling"** pattern: cross-cutting concerns are centralized in the Gateway while domain-specific business logic lives in independently deployable downstream services.
+
+### Gateway: The Cross-Cutting Layer
+
+The reactive API Gateway (Spring Cloud Gateway + WebFlux) owns all concerns that apply uniformly across services:
+
+| Concern | Implementation | Responsibility |
+|---------|---------------|----------------|
+| **Authentication** | Spring Security WebFlux + JWT Resource Server | Validates JWT tokens before any route is matched; unauthorized requests never reach downstream services |
+| **Rate Limiting** | Reactive Bucket4j WebFilter | Per-user and per-IP token-bucket rate limiting (5–500 req/min); returns 429 before downstream services are called |
+| **Circuit Breaking** | Resilience4j per-route circuit breakers | Automatically opens circuits on >50% failure rate, fails fast with 503, and routes to fallback controllers — protecting downstream services from cascading failures |
+| **Retry Logic** | Spring Cloud Gateway retry filter | Automatic retry (2 attempts, exponential backoff) on 503 responses for all HTTP methods |
+| **Trace Propagation** | Micrometer Tracing filter | Injects `X-Trace-Id`, `X-Span-Id`, `traceparent`, and `b3` headers into every downstream request for end-to-end distributed tracing |
+| **CORS & Security Headers** | Reactive SecurityWebFilterChain | Restricts origins to 3 approved frontend domains, enforces HttpOnly/Secure/SameSite=Strict cookies |
+| **Routing** | RouteLocator with path-based predicates | Maps `/api/auth/**`, `/api/accounts/**`, `/api/loans/**`, etc. to the correct downstream service via internal DNS |
+| **Fallback Responses** | FallbackController | Returns structured JSON fallback responses when circuit breakers are open or downstream services are unavailable |
+
+### Downstream Services: The Business Logic Layer
+
+Each of the 8 business modules owns its domain completely — data schema, business rules, and event publication:
+
+| Service | Domain | Schema | Cross-Cutting Isolation |
+|---------|--------|--------|------------------------|
+| **Auth** | User credentials, JWT issuance, RBAC | `schema_auth` | Spring Security chain with BCrypt, JJWT |
+| **Onboarding** | KYC workflow, customer approval | `schema_onboarding` | Status transitions, approval queue |
+| **Core Banking** | Accounts, transfers, Maker-Checker | `schema_core` | Pessimistic locking, idempotency keys |
+| **Lending** | Loan origination, AI risk assessment | `schema_loans` | Spring AI (OpenAI/Ollama), amortization |
+| **Cards** | Card lifecycle, spending controls | `schema_cards` | AES-256-GCM encryption, MCC filtering |
+| **Fraud** | AI fraud detection, risk scoring | `schema_fraud` | Async analysis, hybrid AI |
+| **Batch** | EOD reconciliation, scheduled jobs | `schema_batch` | Spring Batch, balance verification |
+| **Analytics** | CQRS read model, BI aggregation | `schema_analytics` | Denormalized tables, event listeners |
+
+### How Decoupling Works in Practice
+
+```
+                    ┌───────────────────────────────────┐
+                    │          API Gateway               │
+                    │                                   │
+  Request ─────────►│  1. Validate JWT                  │
+                    │  2. Check rate limit token        │
+                    │  3. Add trace headers             │
+                    │  4. Match route                   │
+                    │  5. Wrap in circuit breaker       │
+                    └───────────────┬───────────────────┘
+                                    │
+                ┌───────────────────┼───────────────────┐
+                │                   │                   │
+    ┌───────────▼──────┐ ┌─────────▼──────┐ ┌──────────▼───────┐
+    │  Core Banking    │ │   Lending      │ │    Cards         │
+    │                  │ │                │ │                  │
+    │ • Transfer logic │ │ • AI risk eval │ │ • Card issuance  │
+    │ • Pessimistic    │ │ • Amortization │ │ • MCC filtering  │
+    │   locking        │ │ • Loan state   │ │ • AES encryption │
+    │ • Event publish  │ │ • Credit score │ │ • Spending ctrl  │
+    └──────────────────┘ └────────────────┘ └──────────────────┘
+```
+
+**Key principle:** The Gateway knows *how* to route, secure, and observe. The downstream services know *what* to do with banking data. Neither knows the internals of the other.
+
+### Inter-Module Communication
+
+Modules communicate through **Spring Modulith's persistent event registry**:
+
+- Events are stored in `event_publication` until successfully processed
+- Failed listeners are automatically retried after restart
+- Events are published *after* transaction commit (`@TransactionalEventListener`)
+
+This ensures eventual consistency without tight coupling: Core Banking doesn't need to know that Analytics and Fraud exist — it just publishes `MoneyTransferredEvent`.
+
+---
+
 ## Development Status
 
 | Phase | Module | Status | Description |
@@ -233,33 +308,33 @@ Request → CORS Check → Rate Limit → JWT Validation → Route → Response
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Java | 25 | Virtual threads, records, pattern matching |
-| Spring Boot | 4.0.4 | Reactive application framework |
+| Java | 21 | Virtual threads, records, pattern matching |
+| Spring Boot | 3.5.13 LTS | Reactive application framework |
 | Spring Cloud Gateway | 2025.0.0 | API gateway with reactive routing |
-| Spring WebFlux | 7.0.6 | Reactive web framework |
-| Spring Security | 7.0.4 | Reactive JWT resource server |
+| Spring WebFlux | 6.x | Reactive web framework |
+| Spring Security | 6.x | Reactive JWT resource server |
 | Bucket4j | 8.6.0 | Reactive rate limiting |
-| Resilience4j | 2.3.0 | Circuit breaker for gateway routes |
-| Micrometer Tracing | 1.5.0 | Distributed trace propagation |
+| Resilience4j | 2.4.0 | Circuit breaker for gateway routes |
+| Micrometer Tracing | 1.6.1 | Distributed trace propagation |
 
 ### Backend Modules
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Java | 25 | Virtual threads, records, pattern matching |
-| Spring Boot | 4.0.4 | Application framework |
-| Spring Modulith | 1.4.0 | Modular architecture enforcement |
-| Spring AI | 2.0.0-M1 | Hybrid AI (OpenAI/Ollama) for fraud detection |
-| Spring Security | 7.0.4 | JWT authentication & authorization |
-| Resilience4j | 2.3.0 | Circuit breaker pattern for fault tolerance |
-| Spring Data JPA | 4.0.4 | Database access layer |
-| Hibernate | 7.2.7 | ORM with Jakarta Persistence 3.2.0 |
+| Java | 21 | Virtual threads, records, pattern matching |
+| Spring Boot | 3.5.13 LTS | Application framework |
+| Spring Modulith | 1.3.3 | Modular architecture enforcement |
+| Spring AI | 1.0.0-M4 | Hybrid AI (OpenAI/Ollama) for fraud detection |
+| Spring Security | 6.x | JWT authentication & authorization |
+| Resilience4j | 2.4.0 | Circuit breaker pattern for fault tolerance |
+| Spring Data JPA | 3.x | Database access layer |
+| Hibernate | 6.x | ORM with Jakarta Persistence |
 | JJWT | 0.12.6 | JWT token generation and validation |
 | PostgreSQL | 17 | Production database |
-| Liquibase | 4.29.0 | Database migration management |
-| Testcontainers | 2.0.4 | Integration testing with real PostgreSQL |
-| Micrometer | 1.16.4 | Metrics and observability (Prometheus) |
-| OpenTelemetry | 1.46.0 | Distributed tracing |
+| Liquibase | 4.31.1 | Database migration management |
+| Testcontainers | 1.20.4 | Integration testing with real PostgreSQL |
+| Micrometer | 1.13+ | Metrics and observability (Prometheus) |
+| OpenTelemetry | 1.48.0 | Distributed tracing |
 | OpenAPI/Swagger | 2.8.9 | API documentation |
 
 ### Frontend
@@ -900,7 +975,7 @@ We have exciting plans for NeoBank Core! Here's what's coming:
 - [x] **Rate Limiting**: Reactive Bucket4j with user/IP-based limits
 - [x] **Observability Stack**: LGT (Loki, Grafana, Tempo) + OTel Collector
 - [x] **Frontend Tracing**: Next.js 16 OpenTelemetry instrumentation hook
-- [ ] **Kubernetes Deployment**: Helm charts for cloud-native deployment
+- [x] **Kubernetes Deployment**: Kustomize manifests, zero-downtime deploy scripts, CI/CD pipeline
 - [ ] **Event Sourcing**: Full audit trail with event replay capability
 - [ ] **GraphQL API**: Alternative query layer for flexible data fetching
 - [ ] **gRPC Services**: High-performance inter-service communication

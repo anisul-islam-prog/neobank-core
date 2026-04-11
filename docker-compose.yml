@@ -1,3 +1,11 @@
+# =============================================================================
+# NeoBank — Docker Compose
+# =============================================================================
+# Infrastructure services for local development.
+# Backend modules run via Maven (./run-all.sh), not Docker.
+# For production, see: k8s/overlays/prod (Kubernetes Kustomize)
+# =============================================================================
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -38,39 +46,12 @@ services:
     networks:
       - neobank-network
 
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: neobank-backend
-    depends_on:
-      postgres:
-        condition: service_healthy
-      ollama:
-        condition: service_healthy
-        required: false
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/neobank
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
-      NEOBANK_SEED_DATA: ${NEOBANK_SEED_DATA:-false}
-    ports:
-      - "8080:8080"
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    profiles:
-      - test
-      - prod
-      - demo
-    networks:
-      - neobank-network
+  # ── NOTE: The monolith "backend" service has been replaced by 9 per-service
+  #     Docker images in docker/<service>/Dockerfile and K8s manifests in k8s/.
+  #     For local dev, use: ./run-all.sh (starts all 9 modules via Maven).
+  #     For production, use: kubectl apply -k k8s/overlays/prod
+  #
+  #     Legacy root Dockerfile deleted. See DEPLOYMENT_GUIDE.md for details.
 
   frontend:
     build:
@@ -78,11 +59,11 @@ services:
       dockerfile: Dockerfile
     container_name: neobank-frontend
     depends_on:
-      backend:
+      postgres:
         condition: service_healthy
     environment:
-      NEXT_PUBLIC_API_URL: http://backend:8080
-      NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-production}
+      NEXT_PUBLIC_API_URL: http://host.docker.internal:8080
+      NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-development}
     ports:
       - "3000:3000"
     healthcheck:
@@ -116,8 +97,6 @@ services:
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
-    depends_on:
-      - backend
     profiles:
       - observability
     networks:

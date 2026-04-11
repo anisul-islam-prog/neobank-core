@@ -25,6 +25,22 @@ We, the contributors, pledge to uphold the following principles:
 - Ensure tests are deterministic and fast
 - Use Testcontainers for integration tests
 - Maintain high test coverage without chasing metrics
+- **Zero-Skip Policy:** The CI pipeline runs `mvn clean install` with **no skipped tests**. Any PR that introduces `@Disabled`, `@Ignore`, or skipped integration tests will be **automatically rejected** by CI and must be fixed before review.
+
+### 3.1. CI Test Enforcement
+
+The GitHub Actions pipeline (`.github/workflows/ci-cd.yml`) enforces:
+
+| Rule | Enforcement | Consequence |
+|------|------------|-------------|
+| No skipped tests | `mvn clean install` with no `-DskipTests` | Pipeline fails immediately |
+| No `@Disabled` tests | Code review + CI | PR automatically rejected |
+| Integration tests must pass | Testcontainers + PostgreSQL 17 | Pipeline fails immediately |
+| No test regressions | All 2,396+ tests must pass | Pipeline fails immediately |
+| Docker build requires passing tests | Docker stage depends on build-test | Images are not built |
+| Deployment blocked on failure | Deploy stage needs docker-build | Code is not deployed |
+
+**In short:** If your tests don't pass, your code doesn't ship.
 
 ### 4. Performance with Responsibility
 - Use virtual threads wisely
@@ -76,13 +92,13 @@ We, the contributors, pledge to uphold the following principles:
 
 3. **Make your changes** following our coding standards
 4. **Write tests** for new functionality
-5. **Run all tests**:
+5. **Run all tests** (zero-skip policy):
    ```bash
-   ./mvnw clean test
+   mvn clean install
    ```
 6. **Generate architecture docs** (if applicable):
    ```bash
-   ./mvnw test -Dtest=ArchitectureDocumentationTest
+   mvn test -Dtest=ArchitectureDocumentationTest
    ```
 7. **Commit with clear messages** (see Commit Guidelines)
 8. **Push and open a PR** against `main`
@@ -95,10 +111,11 @@ We, the contributors, pledge to uphold the following principles:
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Java | 25+ | Runtime environment |
+| Java | 21+ | Runtime environment (Virtual Threads) |
 | Maven | 3.9+ | Build tool |
-| Docker | 24+ | Testcontainers and Ollama |
+| Docker | 24+ | Testcontainers and PostgreSQL |
 | Git | Latest | Version control |
+| kubectl | Latest | Kubernetes deployment (production) |
 
 ### Local Development
 
@@ -107,15 +124,14 @@ We, the contributors, pledge to uphold the following principles:
 git clone https://github.com/YOUR_USERNAME/neobank-core.git
 cd neobank-core
 
-# Build the project
-./mvnw clean install
+# Build the project (zero-skip — tests always run)
+mvn clean install
 
-# Run tests (requires Docker for Ollama)
-docker-compose --profile test up -d ollama
-FRAUD_TEST_USE_OPENAI=false ./mvnw test
+# Run tests (requires Docker for Testcontainers)
+mvn test
 
-# Run the application
-./mvnw spring-boot:run
+# Run all 9 services locally
+./run-all.sh
 ```
 
 ### IDE Setup
