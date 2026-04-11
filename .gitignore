@@ -1,4 +1,8 @@
-# Maven
+# =============================================================================
+# NeoBank Core — .gitignore
+# =============================================================================
+
+# ── Maven ────────────────────────────────────────────────────────────────────
 target/
 pom.xml.tag
 pom.xml.releaseBackup
@@ -10,7 +14,7 @@ buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.properties
 
-# IDE
+# ── IDE ──────────────────────────────────────────────────────────────────────
 .idea/
 *.iws
 *.iml
@@ -23,7 +27,7 @@ bin/
 *.tmproj
 *.sw*
 
-# OS
+# ── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
 .DS_Store?
 ._*
@@ -32,18 +36,20 @@ bin/
 ehthumbs.db
 Thumbs.db
 
-# Logs
-logs
+# ── Logs ─────────────────────────────────────────────────────────────────────
+logs/
 *.log
 
-# Testing
+# ── Testing ──────────────────────────────────────────────────────────────────
 *.dump
+surefire-reports/
+test-results/
 
-# Local configuration
+# ── Local configuration ─────────────────────────────────────────────────────
 local.properties
 config.properties
 
-# Environment specific
+# ── Environment specific ─────────────────────────────────────────────────────
 .env
 .env.local
 .env.dev
@@ -53,7 +59,7 @@ config.properties
 .env.production
 .env.example
 
-# Java
+# ── Java ─────────────────────────────────────────────────────────────────────
 *.class
 *.jar
 *.war
@@ -62,26 +68,50 @@ config.properties
 *.tar.gz
 *.tar.bz2
 
-# Temporary files
+# ── Temporary files ──────────────────────────────────────────────────────────
 *~
 .#*
 *#
+*.bak
+*.old
+*.tmp
+*.swp
+*-backup
 
-# Node
+# ── Node ─────────────────────────────────────────────────────────────────────
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Claude Code
+# ── Claude Code ──────────────────────────────────────────────────────────────
 .claude/
 
-# Qwen Code
+# ── Qwen Code ────────────────────────────────────────────────────────────────
 .qwen/
 
-# Frontend build artifacts and generated files
+# ── Frontend build artifacts and generated files ─────────────────────────────
 apps/*/package-lock.json
 apps/*/src/test/
 apps/*/vitest.config.ts
 apps/*/src/components/
 apps/*/src/app/dashboard/
+
+# ── Runtime artifacts ────────────────────────────────────────────────────────
+# PID files created by run-all.sh during local development
+*.pid
+
+# ── OTel & Observability local data ─────────────────────────────────────────
+# Local OTel collector data, traces, and spans captured during dev
+otel-data/
+traces/
+spans/
+
+# ── Testcontainers ───────────────────────────────────────────────────────────
+# Testcontainers Ryuk and local container artifacts
+~/.testcontainers/
+.ryuk*
+
+# ── Docker ───────────────────────────────────────────────────────────────────
+# Docker compose override files for local customization
+docker-compose.override.yml
