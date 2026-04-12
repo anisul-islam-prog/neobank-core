@@ -29,6 +29,46 @@ All services healthy in ~60 seconds. See [Service Port Map](#service-port-map) f
 
 ---
 
+## Quick Start: The 60-Second Bank
+
+Want to see a fully running bank with realistic data — in one command?
+
+```bash
+docker compose --profile demo up -d
+```
+
+This single command:
+
+1. **Starts PostgreSQL** — pre-loaded with `seed-data.sql` on first run
+2. **Starts Ollama** — local AI models for lending risk assessment (no API key needed)
+3. **Starts the full LGT observability stack** — Loki (logs), Grafana (metrics), Tempo (traces)
+4. **Auto-populates 50+ customers** with realistic names, accounts, and balances
+
+Then launch the 9 Spring Boot services:
+
+```bash
+SPRING_PROFILES_ACTIVE=demo ./run-all.sh
+```
+
+Within ~60 seconds you'll have:
+
+| What | Count |
+|------|-------|
+| Customers | 50+ |
+| Transactions | 200+ |
+| Loans (with AI risk assessments) | 15 |
+| Payment Cards (virtual + physical) | 50+ |
+| KYC Records | All customers |
+| Fraud Analyses | 30+ |
+| High-Value Transactions (Maker-Checker queue) | 10+ |
+
+**Grafana dashboards:** http://localhost:3000 (`admin` / `admin123`)
+**Swagger UI:** http://localhost:8080/swagger-ui.html
+
+To tear everything down: `docker compose --profile demo down -v`
+
+---
+
 ## Running Environments
 
 NeoBank supports four environment profiles, each optimized for a specific use case:
@@ -76,7 +116,7 @@ SPRING_PROFILES_ACTIVE=test ./run-all.sh
 
 ### Demo / Showcase (demo)
 
-Pre-loaded with realistic data for presentations:
+Pre-loaded with realistic data for presentations — no Spring Boot rebuild needed:
 
 ```bash
 # Start everything: PostgreSQL + Ollama + full observability + seed data
@@ -200,9 +240,10 @@ See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for the full CI/CD pipeline, Kust
 Push to `main` triggers:
 
 1. **Build & Test** — Java 21, `mvn clean install` (zero-skip, fails immediately on any test failure)
-2. **Docker Build** — 9 parallel multi-stage builds → GHCR, tagged with `${GITHUB_SHA}`
-3. **Security Scan** — Trivy CRITICAL/HIGH vulnerability scan on all images
-4. **Deploy** — `kubectl apply -k k8s/overlays/prod`, waits for critical services, rolling update for business modules
+2. **Docker Build** — 9 parallel builds with `load: true` (images stored in runner's local Docker daemon)
+3. **Security Scan** — Trivy scans local images for CRITICAL/HIGH vulnerabilities *before* push (fails pipeline on detection)
+4. **Docker Push** — 9 parallel pushes to GHCR, only after Trivy confirms images are safe
+5. **Deploy** — `kubectl apply -k k8s/overlays/prod` (manual `workflow_dispatch` only)
 
 ---
 

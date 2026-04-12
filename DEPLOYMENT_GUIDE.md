@@ -87,9 +87,9 @@ neobank-core/
 
 | Event | Behavior |
 |-------|----------|
-| `push` to `main` | Full pipeline: Build → Test → Docker → Scan → Deploy |
+| `push` to `main` | Full pipeline: Build → Test → Docker Build → Scan → Push → Deploy |
 | `pull_request` to `main` | Build + Test only (no deploy) |
-| `workflow_dispatch` | Manual trigger with environment selection (staging/production) |
+| `workflow_dispatch` | Manual trigger with environment selection (production only) |
 
 ### Stage 1: Build & Test (Zero-Skip)
 
@@ -102,23 +102,30 @@ mvn clean install    # Tests are NEVER skipped
 - **Pipeline fails immediately** if any test fails
 - Test results uploaded as artifacts for 7-day retention
 
-### Stage 2: Docker Build
+### Stage 2: Docker Build (Load Only)
 
 - 9 parallel jobs (one per service) using `docker/build-push-action`
+- Images are built with `load: true` — stored in the runner's local Docker daemon, **not pushed to GHCR yet**
 - Each service builds from a **multi-stage Dockerfile** (`docker/<service>/Dockerfile`)
 - Builder stage: `eclipse-temurin:21-jdk-alpine` + Maven
 - Runtime stage: `eclipse-temurin:21-jre-alpine` (non-root user, JRE only)
-- Images tagged with `${GITHUB_SHA}` and `latest`
-- Pushed to **GitHub Container Registry (GHCR)**
+- Images tagged as `<service-name>:latest` for local scanning
 - BuildKit layer caching for fast rebuilds
 
 ### Stage 3: Security Scan (Trivy)
 
-- Scans all 9 images for `CRITICAL` and `HIGH` vulnerabilities
+- Scans all 9 **local** images for `CRITICAL` and `HIGH` vulnerabilities
 - Results uploaded to **GitHub Security tab** as SARIF
-- Non-blocking (`continue-on-error: true`) — reports but doesn't stop deployment
+- **Blocking** (`exit-code: '1'`) — pipeline fails if critical/high vulnerabilities are found
+- Scans the local image tag (e.g., `analytics:latest`) — no registry round-trip, no race condition
 
-### Stage 4: Deploy
+### Stage 4: Docker Push (GHCR)
+
+- Only runs **after** Trivy confirms all images are clean
+- 9 parallel pushes to GitHub Container Registry
+- Images tagged with `${GITHUB_SHA}` and `latest`
+
+### Stage 5: Deploy
 
 - Applies Kustomize production overlay: `kubectl apply -k k8s/overlays/prod`
 - Waits for Auth + Core Banking before proceeding
