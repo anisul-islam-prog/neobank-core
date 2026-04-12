@@ -67,6 +67,13 @@ Within ~60 seconds you'll have:
 
 To tear everything down: `docker compose --profile demo down -v`
 
+> **Troubleshooting — seed data not loading?**  
+> PostgreSQL only runs init scripts on a **fresh** volume. If you previously started the demo profile and the seed data didn't appear, prune the old volume first:
+> ```bash
+> docker compose --profile demo down -v   # destroys the old postgres_data volume
+> docker compose --profile demo up -d     # recreates it and re-runs seed-data.sql
+> ```
+
 ---
 
 ## Running Environments

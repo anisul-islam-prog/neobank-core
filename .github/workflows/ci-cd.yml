@@ -1,8 +1,8 @@
 # =============================================================================
 # NeoBank - Production CI/CD Pipeline
 # =============================================================================
-# Stages: Build → Test → Docker → Security Scan → Push → Deploy (manual only)
-# Triggered on: push to main (build/test/docker/scan/push), PRs to main (build/test)
+# Stages: Build → Test → Build/Scan/Push → Deploy (manual only)
+# Triggered on: push to main (build/test/build-scan-push), PRs to main (build/test)
 # Deploy stage: available via workflow_dispatch with production choice only
 # =============================================================================
 
@@ -115,139 +115,40 @@ jobs:
           retention-days: 3
 
   # ========================================================================
-  # STAGE 2: Build Docker Images (multi-stage, per-service — load only, no push)
+  # STAGE 2: Build → Scan → Push (single job per service, image never leaves runner)
   # ========================================================================
-  # Images are loaded into the runner's local Docker daemon (load: true).
-  # This enables Trivy to scan the local image *before* it is pushed to GHCR.
+  # 1. Build with load:true → local tag (module:latest)
+  # 2. Trivy scans the local image (blocking — exit-code:1)
+  # 3. Only after scan passes: docker tag + docker push to GHCR
+  # This eliminates the manifest-unknown race condition AND avoids
+  # rebuilding the image a second time just to push.
   # ========================================================================
-  docker-build:
-    name: "Docker Build — ${{ matrix.service.name }}"
+  build-scan-push:
+    name: "Build / Scan / Push — ${{ matrix.module }}"
     runs-on: ubuntu-latest
     needs: [ build-test ]
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
       matrix:
-        service:
-          - { name: gateway,        dockerfile: docker/gateway/Dockerfile,       port: 8080 }
-          - { name: auth,           dockerfile: docker/auth/Dockerfile,          port: 8081 }
-          - { name: onboarding,     dockerfile: docker/onboarding/Dockerfile,    port: 8082 }
-          - { name: core-banking,   dockerfile: docker/core-banking/Dockerfile,  port: 8083 }
-          - { name: lending,        dockerfile: docker/lending/Dockerfile,       port: 8084 }
-          - { name: cards,          dockerfile: docker/cards/Dockerfile,         port: 8085 }
-          - { name: fraud,          dockerfile: docker/fraud/Dockerfile,         port: 8086 }
-          - { name: batch,          dockerfile: docker/batch/Dockerfile,         port: 8087 }
-          - { name: analytics,      dockerfile: docker/analytics/Dockerfile,     port: 8088 }
+        module:
+          - gateway
+          - auth
+          - onboarding
+          - core-banking
+          - lending
+          - cards
+          - fraud
+          - batch
+          - analytics
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Extract Metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-neobank-${{ matrix.service.name }}
-          tags: |
-            type=sha,prefix=
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build Docker Image (load into local daemon)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.service.dockerfile }}
-          push: false
-          load: true
-          tags: ${{ matrix.service.name }}:latest
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            SERVICE_PORT=${{ matrix.service.port }}
-
-  # ========================================================================
-  # STAGE 3: Security Scan (Trivy vulnerability scan on local images)
-  # ========================================================================
-  # Scans the locally loaded image tag (e.g. analytics:latest) BEFORE push.
-  # This eliminates the "manifest unknown" race condition.
-  # ========================================================================
-  security-scan:
-    name: "Security Scan — ${{ matrix.service.name }}"
-    runs-on: ubuntu-latest
-    needs: [ docker-build ]
-    timeout-minutes: 15
-
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - { name: gateway }
-          - { name: auth }
-          - { name: onboarding }
-          - { name: core-banking }
-          - { name: lending }
-          - { name: cards }
-          - { name: fraud }
-          - { name: batch }
-          - { name: analytics }
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-
-      - name: Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: '${{ matrix.service.name }}:latest'
-          format: 'sarif'
-          output: 'trivy-results-${{ matrix.service.name }}.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
-
-      - name: Upload Trivy Results to GitHub Security Tab
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
-          sarif_file: 'trivy-results-${{ matrix.service.name }}.sarif'
-
-      - name: Generate Scan Summary
-        if: always()
-        run: |
-          echo "### Trivy Scan: ${{ matrix.service.name }}" >> $GITHUB_STEP_SUMMARY
-          echo "Image: \`${{ matrix.service.name }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "Status: Scan completed. Check the Security tab for details." >> $GITHUB_STEP_SUMMARY
-
-  # ========================================================================
-  # STAGE 4: Push Docker Images to GHCR (only after Trivy confirms safe)
-  # ========================================================================
-  docker-push:
-    name: "Docker Push — ${{ matrix.service.name }}"
-    runs-on: ubuntu-latest
-    needs: [ security-scan ]
-    timeout-minutes: 15
-
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - { name: gateway,        dockerfile: docker/gateway/Dockerfile,       port: 8080 }
-          - { name: auth,           dockerfile: docker/auth/Dockerfile,          port: 8081 }
-          - { name: onboarding,     dockerfile: docker/onboarding/Dockerfile,    port: 8082 }
-          - { name: core-banking,   dockerfile: docker/core-banking/Dockerfile,  port: 8083 }
-          - { name: lending,        dockerfile: docker/lending/Dockerfile,       port: 8084 }
-          - { name: cards,          dockerfile: docker/cards/Dockerfile,         port: 8085 }
-          - { name: fraud,          dockerfile: docker/fraud/Dockerfile,         port: 8086 }
-          - { name: batch,          dockerfile: docker/batch/Dockerfile,         port: 8087 }
-          - { name: analytics,      dockerfile: docker/analytics/Dockerfile,     port: 8088 }
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
+      - name: Fix Docker Daemon Permissions
+        run: sudo chmod 666 /var/run/docker.sock
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -259,30 +160,58 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-neobank-${{ matrix.service.name }}
-          tags: |
-            type=sha,prefix=
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build and Push Docker Image
+      # ── STEP 1: Build (load into local Docker daemon) ──────────────────
+      - name: Build Docker Image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ matrix.service.dockerfile }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          file: docker/${{ matrix.module }}/Dockerfile
+          push: false
+          load: true
+          tags: ${{ matrix.module }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            SERVICE_PORT=${{ matrix.service.port }}
+
+      # ── STEP 2: Security Scan (Trivy on local image) ───────────────────
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ matrix.module }}:latest'
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.module }}.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+      - name: Upload Trivy Results to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.module }}.sarif'
+
+      - name: Generate Scan Summary
+        if: always()
+        run: |
+          echo "### Trivy Scan: ${{ matrix.module }}" >> $GITHUB_STEP_SUMMARY
+          echo "Image: \`${{ matrix.module }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "Status: Scan completed. Check the Security tab for details." >> $GITHUB_STEP_SUMMARY
+
+      # ── STEP 3: Tag and Push to GHCR (only after Trivy passes) ─────────
+      - name: Tag and Push to GHCR
+        run: |
+          docker tag ${{ matrix.module }}:latest ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-neobank-${{ matrix.module }}:latest
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-neobank-${{ matrix.module }}:latest
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            docker tag ${{ matrix.module }}:latest ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-neobank-${{ matrix.module }}:${{ github.sha }}
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-neobank-${{ matrix.module }}:${{ github.sha }}
+          fi
+
+      - name: Push Summary
+        run: |
+          echo "### Pushed: ${{ matrix.module }}" >> $GITHUB_STEP_SUMMARY
+          echo "Registry: \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-neobank-${{ matrix.module }}:latest\`" >> $GITHUB_STEP_SUMMARY
 
   # ========================================================================
-  # STAGE 5: Deploy to Environment (MANUAL via workflow_dispatch only)
+  # STAGE 3: Deploy to Environment (MANUAL via workflow_dispatch only)
   # ========================================================================
   # NOTE: This stage is NOT triggered on push/PR. It only runs when you
   # manually dispatch the workflow and select an environment.
@@ -291,7 +220,7 @@ jobs:
   deploy:
     name: "Deploy to ${{ inputs.environment }}"
     runs-on: ubuntu-latest
-    needs: [ docker-push, security-scan ]
+    needs: [ build-scan-push ]
     if: github.event_name == 'workflow_dispatch'
     timeout-minutes: 30
     environment:

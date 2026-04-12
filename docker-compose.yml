@@ -29,7 +29,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # Seed data for demo profile (loaded when PostgreSQL initializes)
-      - ./neobank-core-banking/src/main/resources/db/seed-data.sql:/docker-entrypoint-initdb.d/seed-data.sql:ro
+      # The 10- prefix ensures it runs after any earlier init scripts
+      - ./neobank-core-banking/src/main/resources/db/seed-data.sql:/docker-entrypoint-initdb.d/10-seed-data.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
